@@ -1,9 +1,9 @@
 {
   "target": "Ubuntu 22.04 / ROS 2 Humble",
   "default_arm": "left",
-  "default_domain": 0,
+  "default_domain": 26,
   "source_model": "src/tilt_kaixuan/urdf/整体urdf.urdf",
   "source_model_sha256": "8e0b22c31070721ca8362552781b9a08ba3588a1ed49bcfdeb1ffe7191f2e193",
   "source_srdf_sha256": "ef50c4cb45faa2c2a5a3558be0e42033d05d635efba1acbf3fad8ef77b09d36f",
-  "validation": "Local model resources, launch parameters, RViz startup and read-only ROS interfaces verified with mock hardware in isolated domain 187. Two-computer LAN and physical motion not tested."
+  "validation": "RViz startup verified with mock hardware in isolated domain 187. Environment override regression tests passed. Read-only joint feedback, TF, MoveIt interfaces, active left-arm controller and URDF match verified against the running robot in domain 26. Two-computer LAN and physical motion not tested."
 }

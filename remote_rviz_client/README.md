@@ -8,19 +8,27 @@ RViz 订阅 `/joint_states`、`/tf`、`/tf_static`、`/monitored_planning_scene`
 通过 `/move_action` 和 `/execute_trajectory` 等 ROS 2 action / service 请求规划及执行。
 因此机器人端必须保持 bringup 运行，只有话题订阅不能完成运动控制。
 
-## 1. 从机器人复制到自己的电脑
+## 1. 自己的电脑：从 GitHub 获取客户端
 
 在你自己的 Ubuntu 电脑终端运行：
 
 ```bash
-scp agxorin@172.16.13.197:/home/agxorin/cxl/kaixuan/kaixuan_remote_rviz_humble.tar.gz ~/
-cd ~
-tar -xzf kaixuan_remote_rviz_humble.tar.gz
+mkdir -p ~/code/junji
+cd ~/code/junji
+git clone https://github.com/Krriat/kaixuan.git
+cd kaixuan/remote_rviz_client
+```
+
+如果已经 clone，在现有工作区更新即可：
+
+```bash
+cd ~/code/junji/kaixuan
+git pull --ff-only
 cd remote_rviz_client
 ```
 
-如果 SSH 使用其他用户名、IP 或端口，替换 scp 中对应项。
-模型网格在 `model/meshes/`；保留整个解压目录，路径中含空格也可以启动。
+后续修改直接提交到仓库的 `remote_rviz_client/`，客户端通过 `git pull` 获取。
+模型网格在 `model/meshes/`；保留整个客户端目录，路径中含空格也可以启动。
 
 ## 2. 机器人端：启动左臂
 
@@ -28,7 +36,7 @@ cd remote_rviz_client
 
 ```bash
 source /home/agxorin/cxl/kaixuan/install/setup.bash
-export ROS_DOMAIN_ID=0
+export ROS_DOMAIN_ID=26
 export ROS_LOCALHOST_ONLY=0
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 ros2 launch kaixuan3_config moveit_bringup.launch.py \
@@ -44,9 +52,10 @@ ros2 launch kaixuan3_config moveit_bringup.launch.py \
 ## 3. 自己的电脑：检查连接并打开 RViz
 
 ```bash
-cd ~/remote_rviz_client
-bash ./check_connection.sh
-bash ./start_rviz.sh
+cd ~/code/junji/kaixuan/remote_rviz_client
+export ROS_DOMAIN_ID=26
+bash ./check_connection.sh --arm left
+bash ./start_rviz.sh arm:=left
 ```
 
 如果提示缺少 RViz / MoveIt 依赖，先运行一次：
@@ -55,8 +64,9 @@ bash ./start_rviz.sh
 bash ./install_dependencies.sh
 ```
 
-脚本自动 source `/opt/ros/humble/setup.bash`，设置 `ROS_DOMAIN_ID=0`、
+脚本自动 source `/opt/ros/humble/setup.bash`，默认使用 `ROS_DOMAIN_ID=26`、
 `ROS_LOCALHOST_ONLY=0`、Fast DDS，并加载本地模型、SRDF、运动学和关节限制。
+终端里明确 `export ROS_DOMAIN_ID=26` 后，脚本会保留这个值，不会被项目配置覆盖。
 启动的唯一 ROS 节点是本机 RViz，不启动本地 `move_group`、模拟关节发布器或控制器。
 连接检查脚本只读状态与查询服务，不发送运动目标。
 
@@ -80,8 +90,12 @@ bash ./start_rviz.sh arm:=right
 
 ## 4. 网络排查
 
-两端的 `ROS_DOMAIN_ID` 必须相同。修改 `network.env` 中的 `KAIXUAN_ROS_DOMAIN_ID` 后，
-机器人端也要使用相同值。当前机器人地址为 `172.16.13.197`，地址变化时更新复制命令。
+两端的 `ROS_DOMAIN_ID` 必须相同，当前机器人使用 `26`。
+客户端优先级为：终端 `ROS_DOMAIN_ID` > `KAIXUAN_ROS_DOMAIN_ID` > `network.env` 默认值 `26`。
+例如 `ROS_DOMAIN_ID=26 bash ./check_connection.sh --arm left` 一定使用 `26`，
+而 `ROS_DOMAIN_ID=0` 会明确使用 `0`。
+环境变量只对之后启动的进程生效，不能通过另一个终端的 export 改变已运行的 bringup。
+当前机器人地址为 `172.16.13.197`。
 ROS 2 通过 DDS 在局域网发现节点，不使用 ROS 1 的 `ROS_MASTER_URI`。
 
 如果 SSH 能连接但检查失败：
@@ -112,7 +126,7 @@ KAIXUAN_DISCOVERY_SERVER=172.16.13.197:11811 bash ./robot_bringup.sh
 自己的电脑上：
 
 ```bash
-cd ~/remote_rviz_client
+cd ~/code/junji/kaixuan/remote_rviz_client
 export KAIXUAN_DISCOVERY_SERVER=172.16.13.197:11811
 bash ./check_connection.sh
 bash ./start_rviz.sh

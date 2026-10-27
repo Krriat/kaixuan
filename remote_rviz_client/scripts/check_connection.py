@@ -90,16 +90,23 @@ class Check(Node):
             return None
 
     def run(self, timeout):
-        print(f"ROS Domain={os.environ.get('ROS_DOMAIN_ID', '0')}  RMW={os.environ.get('RMW_IMPLEMENTATION', '')}")
+        domain = self.context.get_domain_id()
+        print(f"ROS Domain={domain}  RMW={os.environ.get('RMW_IMPLEMENTATION', '')}")
         print("只读取状态、查询服务；不会发送规划或运动目标。", flush=True)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             rclpy.spin_once(self, timeout_sec=0.1)
             if (self.joints <= self.received.keys() and self.tf_count and self.plan.service_is_ready()
                     and self.scene.service_is_ready() and self.move.server_is_ready()
-                    and self.execute.server_is_ready() and self.controllers.service_is_ready()):
+                    and self.execute.server_is_ready() and self.controllers.service_is_ready()
+                    and self.description.service_is_ready()):
                 break
         problems = []
+
+        if (not self.received and not self.tf_count and not self.plan.service_is_ready()
+                and not self.move.server_is_ready() and not self.controllers.service_is_ready()):
+            print(f"[提示] Domain {domain} 中尚未发现机器人反馈或服务。请先核对两端 Domain ID 与 DDS 网络。")
+            print("环境变量只影响之后启动的进程；在另一个终端 export 不会改变已运行的 bringup。")
 
         def report(good, title, advice):
             print(f"[{'OK' if good else 'FAIL'}] {title}", flush=True)
@@ -125,8 +132,8 @@ class Check(Node):
         request.names = ["robot_description"]
         response = self.rpc(self.description, request)
         description = response.values[0].string_value if response and response.values else ""
-        matching = False
         if description:
+            matching = False
             try:
                 matching = model_signature(description) == model_signature((ROOT / "model/robot.urdf").read_text())
                 plugin = ET.fromstring(description).findtext("./ros2_control/hardware/plugin")
@@ -134,7 +141,10 @@ class Check(Node):
                     print("机器人端硬件插件：" + plugin)
             except (ET.ParseError, ValueError):
                 pass
-        report(matching, "客户端 URDF 关节结构与机器人一致", "模型不一致或读取失败；请从机器人重新复制客户端包。")
+            report(matching, "客户端 URDF 关节结构与机器人一致", "已读到机器人模型，但关节结构不一致或无法解析；请更新匹配的客户端模型。")
+        else:
+            print("[SKIP] URDF 模型比对：未读到机器人模型，暂不能判断是否一致。")
+            problems.append("无法读取 robot_state_publisher 的 robot_description；请先检查 DDS 连接及参数服务。")
         if self.source_delay is not None:
             print(f"关节消息时间差（含网络延迟）：{self.source_delay:+.3f} 秒")
             if abs(self.source_delay) > 1:
