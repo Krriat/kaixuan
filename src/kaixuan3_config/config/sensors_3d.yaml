@@ -1,0 +1,5 @@
+# No 3D sensors configured by default.
+#
+# If you have a depth camera / pointcloud sensor and want octomap updates in MoveIt,
+# add your sensor(s) here.
+sensors: []

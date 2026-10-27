@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<library path="kaixuan_can_hardware">
+  <class
+    name="kaixuan_can_hardware/KaixuanCanSystem"
+    type="kaixuan_can_hardware::KaixuanCanSystem"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>Dual-arm EtherCAT CiA402 CSP SystemInterface for the Kaixuan robot.</description>
+  </class>
+</library>

@@ -1,0 +1,51 @@
+{
+  "kgu20_c_48v": {
+    "dofs": [
+      "right_joint1",
+      "right_joint2",
+      "left_joint1",
+      "left_joint2"
+    ],
+    "gear_ratio": 101,
+    "observed_rated_current_a": {
+      "right_joint1": 3.3,
+      "right_joint2": 3.3,
+      "left_joint1": 3.3,
+      "left_joint2": 3.3
+    }
+  },
+  "kgu17_b_48v": {
+    "dofs": [
+      "right_joint3",
+      "right_joint4",
+      "left_joint3",
+      "left_joint4"
+    ],
+    "gear_ratio": 81,
+    "observed_rated_current_a": {
+      "right_joint3": 2.5,
+      "right_joint4": 2.5,
+      "left_joint3": 2.0,
+      "left_joint4": 2.5
+    }
+  },
+  "kgu11_c_48v": {
+    "dofs": [
+      "right_joint5",
+      "right_joint6",
+      "right_joint7",
+      "left_joint5",
+      "left_joint6",
+      "left_joint7"
+    ],
+    "gear_ratio": 101,
+    "observed_rated_current_a": {
+      "right_joint5": 1.0,
+      "right_joint6": 1.0,
+      "right_joint7": 1.0,
+      "left_joint5": 1.0,
+      "left_joint6": 1.0,
+      "left_joint7": 1.0
+    }
+  }
+}

@@ -1,0 +1,3 @@
+trajectory_execution:
+  allowed_start_tolerance: 0.1        # 允许从中途停止后重新规划执行
+  execution_duration_monitoring: false # 禁用MoveIt独立超时监控（控制器自己管时间）

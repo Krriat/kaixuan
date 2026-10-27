@@ -1,0 +1,14 @@
+{
+  "model": "m1",
+  "actuator": "kaixuan_kgu",
+  "kt": 7.393003808139655,
+  "R": 3.434169510877775,
+  "armature": 0.0009425,
+  "kp_joint": 700.0,
+  "kd_joint": 9.0,
+  "current_limit": 12.308934549690008,
+  "friction_base": 0.4,
+  "friction_viscous": 0.050259455713230115,
+  "q_offset": 0.0,
+  "command_delay": 0.001
+}

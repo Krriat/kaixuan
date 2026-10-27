@@ -1,0 +1,190 @@
+right
+       "-242.3790",
+        "0.8604",
+        "199.1993",
+        "8.2645",
+        "21.6458",
+        "56.0193",
+        "0",
+
+left
+        "-2.28",
+        "77.30",
+        "-18.27",
+        "1.00",
+        "-53.26",
+        "3.81",
+        "0",
+
+sudo ethercatctl start
+sudo ethercat master
+sudo ethercat slaves
+
+开机初始化
+sudo ./init_ethercat_after_power_on.sh right
+sudo ./init_ethercat_after_power_on.sh left
+sudo ./init_ethercat_after_power_on.sh both
+
+电机层启动op 使能：
+sudo python3 /home/agxorin/cxl/kaixuan/src/normal/prepare_ethercat_op_csp.py
+sudo python3 prepare_ethercat_op_csp.py --active-arm right
+
+run motor(增量):
+sudo python3 calibrate_joint_ethercat.py right_joint4 --degrees 45
+
+sudo python3 calibrate_joint_ethercat.py left_joint1 --degrees -10
+
+sudo python3 calibrate_joint_ethercat.py \
+  right_joint2 \
+  --degrees 20 \
+  --speed-deg-s 5
+
+read position:
+sudo python3 read_14_positions_live.py --once
+sudo python3 read_14_positions_live.py --active-arm right --once
+sudo python3 read_14_positions_live.py --active-arm both --once
+
+下op：
+sudo python3 /home/agxorin/cxl/kaixuan/src/normal/prepare_ethercat_op_csp.py --stop
+sudo python3 prepare_ethercat_op_csp.py --active-arm right --stop
+
+ros2控制层启动op：
+source /home/agxorin/cxl/kaixuan/install/setup.bash && ros2 launch kaixuan3_config moveit_bringup.launch.py use_real_hardware:=true use_rviz:=false
+
+ros2 launch kaixuan3_config moveit_bringup.launch.py \
+  use_real_hardware:=true \
+  use_rviz:=false \
+  active_arm:=right
+
+# 单关节绝对角度控制（先按实时反馈换算成增量；其余6轴保持当前角度）
+python3 /home/agxorin/cxl/kaixuan/src/normal/jog_joint.py right_joint1 --degrees 10 --duration 5
+
+# 单关节增量角度控制
+python3 /home/agxorin/cxl/kaixuan/src/normal/jog_joint.py right_joint1 --delta-degrees 10 --duration 5
+
+ros2 launch robot_voice_nodes app_bridge.launch.py
+
+进入op，设6060 为8，读6064，赋值给607a，6040给6-7-15，改607a。
+
+echo $ROS_DOMAIN_ID $RMW_IMPLEMENTATION $ROS_LOCALHOST_ONLY
+export ROS_DOMAIN_ID=1
+export ROS_LOCALHOST_ONLY=0
+unset RMW_IMPLEMENTATION 
+
+自己电脑运行：
+ros2 launch kaixuan3_config rviz_only.launch.py
+
+export ROS_DOMAIN_ID=1
+export ROS_LOCALHOST_ONLY=0
+unset RMW_IMPLEMENTATION
+
+sudo bash pid.bash -m 0 -s 3
+sudo bash pid.bash -m 0 -s 3   --speed-p 800   --speed-i 300   --speed-ff 0   --position-p 22   --position-p-fine 2000
+bash pid.bash -m 0 -s 3 --speed-p 5 --save-eeprom
+
+sudo bash pid.bash -m 0 -s 3 \
+  --position-ff 100 \
+  --save-eeprom
+
+sudo ethercat -m 0 download -p 3 -t uint32 0x2008 0x07 1 
+sudo ethercat -m 0 upload -p 3 -t uint32 0x2008 0x08
+
+
+watch -n 0.2 '
+sudo ethercat upload -m 0 -p 0 -t uint16 0x6041 0
+sudo ethercat upload -m 0 -p 0 -t int32  0x607A 0
+sudo ethercat upload -m 0 -p 0 -t int32  0x6064 0
+sudo ethercat upload -m 0 -p 0 -t int32  0x606C 0
+sudo ethercat upload -m 0 -p 0 -t int16  0x6077 0
+
+sudo ethercatctl stop
+sudo env PCAP_SIZE_MB=64 ethercatctl start
+
+cat /sys/module/ec_master/parameters/pcap_size
+
+sudo -E bash -lc 'source /opt/ros/humble/setup.bash && source /home/agxorin/cxl/kaixuan/install/setup.bash && ros2 launch kaixuan3_config moveit_bringup.launch.py use_real_hardware:=true use_rviz:=false'
+
+watch -n 0.2 '
+echo "6040 control word:"
+sudo ethercat upload -m 0 -p 1 -t uint16 0x6040 0
+
+echo "6041 status word:"
+sudo ethercat upload -m 0 -p 1 -t uint16 0x6041 0
+
+echo "607A target position:"
+sudo ethercat upload -m 0 -p 1 -t int32 0x607A 0
+
+echo "6064 actual position:"
+sudo ethercat upload -m 0 -p 1 -t int32 0x6064 0
+
+echo "606C actual velocity:"
+sudo ethercat upload -m 0 -p 1 -t int32 0x606C 0
+
+echo "6077 actual torque:"
+sudo ethercat upload -m 0 -p 1 -t int16 0x6077 0
+'
+
+
+sudo
+1. 设置 PP 模式
+sudo ethercat download -m 0 -p 1 -t int16 0x6060 0 1
+设置相对位置增量
+sudo ethercat download -m 0 -p 1 -t int32 0x607a 0 146
+sudo ethercat download -m 0 -p 1 -t int32 -- 0x607a 0 -2000
+
+sudo ethercat upload -m 0 -p 1 -t int32 0x607a 0
+完成使能
+sudo ethercat download -m 0 -p 1 -t uint16 0x6040 0 0x0006
+sudo ethercat download -m 0 -p 1 -t uint16 0x6040 0 0x0007
+sudo ethercat download -m 0 -p 1 -t uint16 0x6040 0 0x000f
+
+sudo ethercat upload -m 0 -p 1 -t uint16 0x6040 0
+sudo ethercat upload -m 0 -p 1 -t uint16 0x6041 0
+触发相对运动
+# relative=1，new-set-point=0
+sudo ethercat download -m 0 -p 1 -t uint16 0x6040 0 0x004f
+
+# new-set-point 产生上升沿
+sudo ethercat download -m 0 -p 1 -t uint16 0x6040 0 0x005f
+
+# 清除 new-set-point，为下一条命令做准备
+sudo ethercat download -m 0 -p 1 -t uint16 0x6040 0 0x004f
+
+后续每次相对移动，只需要重新写 607A 增量，然后重复：
+6040 = 0x004F → 0x005F → 0x004F
+
+启动 Servo：
+source /home/agxorin/cxl/kaixuan/install/setup.bash
+
+ros2 launch kaixuan3_config servo_node.launch.py \
+  use_real_hardware:=true
+
+启动伺服：
+ros2 service call \
+  /servo_node/start_servo \
+  std_srvs/srv/Trigger \
+  '{}'
+
+ros2 topic pub   /servo_demo_node/delta_twist_cmds   geometry_msgs/msg/TwistStamped   "{
+    header: {
+      stamp: now,
+      frame_id: base_link
+    },
+    twist: {
+      linear:  {x: 0.0, y: 0.0, z: -0.1},
+      angular: {x: 0.0, y: 0.0, z: 0.0}
+    }
+  }"   --rate 100   --times 1000   --qos-profile sensor_data
+
+
+source /home/agxorin/cxl/kaixuan/install/setup.bash
+
+export ROS_DOMAIN_ID=26
+export ROS_LOCALHOST_ONLY=0
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+ros2 launch kaixuan3_config moveit_bringup.launch.py \
+  use_real_hardware:=true \
+  use_rviz:=false \
+  active_arm:=left
+

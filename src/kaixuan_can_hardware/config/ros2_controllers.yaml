@@ -1,0 +1,137 @@
+# ros2_control controller configuration for real hardware
+
+controller_manager:
+  ros__parameters:
+    update_rate: 1000  # Hz; EtherCAT cyclic I/O is also 1 kHz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    right_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    left_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    forward_position_controller:
+      type: position_controllers/JointGroupPositionController
+
+
+right_arm_controller:
+  ros__parameters:
+    joints:
+      - right_joint1
+      - right_joint2
+      - right_joint3
+      - right_joint4
+      - right_joint5
+      - right_joint6
+      - right_joint7
+
+    command_interfaces:
+      - position
+
+    state_interfaces:
+      - position
+      - velocity
+
+    set_last_command_interface_value_as_state_on_activation: true
+
+    constraints:
+      goal_time: 0.0          # 0 = 不检查总时间
+      stopped_velocity_tolerance: 0.05
+
+      right_joint1:
+        trajectory: 0.0       # 0 = 禁用路径跟踪容差检查
+        goal: 0.1
+
+      right_joint2:
+        trajectory: 0.0
+        goal: 0.1
+
+      right_joint3:
+        trajectory: 0.0
+        goal: 0.1
+
+      right_joint4:
+        trajectory: 0.0
+        goal: 0.1
+
+      right_joint5:
+        trajectory: 0.0
+        goal: 0.1
+
+      right_joint6:
+        trajectory: 0.0
+        goal: 0.1
+
+      right_joint7:
+        trajectory: 0.0
+        goal: 0.1
+
+
+forward_position_controller:
+  ros__parameters:
+    joints:
+      - right_joint1
+      - right_joint2
+      - right_joint3
+      - right_joint4
+      - right_joint5
+      - right_joint6
+      - right_joint7
+
+    interface_name: position
+
+
+left_arm_controller:
+  ros__parameters:
+    joints:
+      - left_joint1
+      - left_joint2
+      - left_joint3
+      - left_joint4
+      - left_joint5
+      - left_joint6
+      - left_joint7
+
+    command_interfaces:
+      - position
+
+    state_interfaces:
+      - position
+      - velocity
+
+    set_last_command_interface_value_as_state_on_activation: true
+
+    constraints:
+      goal_time: 0.0          # 0 = 不检查总时间
+      stopped_velocity_tolerance: 0.01
+
+      left_joint1:
+        trajectory: 0.0       # 0 = 禁用路径跟踪容差检查
+        goal: 0.1
+
+      left_joint2:
+        trajectory: 0.0
+        goal: 0.1
+
+      left_joint3:
+        trajectory: 0.0
+        goal: 0.1
+
+      left_joint4:
+        trajectory: 0.0
+        goal: 0.1
+
+      left_joint5:
+        trajectory: 0.0
+        goal: 0.1
+
+      left_joint6:
+        trajectory: 0.0
+        goal: 0.1
+
+      left_joint7:
+        trajectory: 0.0
+        goal: 0.1

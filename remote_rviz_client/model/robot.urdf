@@ -1,0 +1,872 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="kaixuan1">
+  <link
+    name="world" />
+  <joint
+    name="world_to_base"
+    type="fixed">
+    <origin
+      xyz="0 0 1"
+      rpy="0 0 0" />
+    <parent
+      link="world" />
+    <child
+      link="base_link" />
+  </joint>
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="8.69791479723436E-05 -1.00630614952024E-11 -0.454814742530578"
+        rpy="0 0 0" />
+      <mass
+        value="22.2097166637865" />
+      <inertia
+        ixx="1.6910180658421"
+        ixy="3.69272938818943E-11"
+        ixz="-2.66643401391567E-11"
+        iyy="1.67605889385619"
+        iyz="-5.56085993225209E-12"
+        izz="0.0872412077441956" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="left_link1">
+    <inertial>
+      <origin
+        xyz="-0.036648943415751 -0.0231993689647354 0.0887618403757516"
+        rpy="0 0 0" />
+      <mass
+        value="2.59480435895926E-06" />
+      <inertia
+        ixx="2.95131363887509E-13"
+        ixy="-1.19999432516171E-25"
+        ixz="4.30029652890186E-26"
+        iyy="3.22284638661567E-12"
+        iyz="9.42683269476086E-17"
+        izz="3.22433677852369E-12" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint1"
+    type="revolute">
+    <origin
+      xyz="0 0.20995 -0.049457"
+      rpy="1.3963 0 3.1416" />
+    <parent
+      link="base_link" />
+    <child
+      link="left_link1" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="left_link2">
+    <inertial>
+      <origin
+        xyz="-1.08822667543862E-08 -0.0949797915506936 0.0479660174054406"
+        rpy="0 0 0" />
+      <mass
+        value="0.387419856429032" />
+      <inertia
+        ixx="0.000904455422884454"
+        ixy="-4.03712168432266E-10"
+        ixz="2.2053894095882E-09"
+        iyy="0.000811047113592825"
+        iyz="-2.46417519180091E-06"
+        izz="0.000622684151609973" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint2"
+    type="revolute">
+    <origin
+      xyz="0.046775599310527 0 0.0681999999999988"
+      rpy="-3.141592653589793 1.570796326794897 0" />
+    <parent
+      link="left_link1" />
+    <child
+      link="left_link2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="left_link3">
+    <inertial>
+      <origin
+        xyz="-0.000107013155734248 3.80685173662076E-09 0.0712277881298163"
+        rpy="0 0 0" />
+      <mass
+        value="0.215052799618086" />
+      <inertia
+        ixx="0.000734398414669433"
+        ixy="2.26041998702143E-09"
+        ixz="1.12525109856301E-06"
+        iyy="0.000546069103779602"
+        iyz="-3.74170387534986E-10"
+        izz="0.000395397133898172" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint3"
+    type="revolute">
+    <origin
+      xyz="0 -0.218200000000003 0.0478000000000001"
+      rpy="-1.5707963267949 0 -3.14159265358979" />
+    <parent
+      link="left_link2" />
+    <child
+      link="left_link3" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="left_link4">
+    <inertial>
+      <origin
+        xyz="-1.87714345734058E-08 -0.0670764478391289 0.0448406625345443"
+        rpy="0 0 0" />
+      <mass
+        value="0.268208201906555" />
+      <inertia
+        ixx="0.000645879409400831"
+        ixy="2.12024529436775E-10"
+        ixz="-1.58658409250926E-10"
+        iyy="0.000508252290916151"
+        iyz="-3.04630811506657E-06"
+        izz="0.000400652482663941" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint4"
+    type="revolute">
+    <origin
+      xyz="-0.0443396358123755 0 0.120235908166671"
+      rpy="-1.57318583935484 0 -1.5707963267949" />
+    <parent
+      link="left_link3" />
+    <child
+      link="left_link4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="left_link5">
+    <inertial>
+      <origin
+        xyz="-2.05911910745871E-06 -0.00490468963880775 0.0428411790889575"
+        rpy="0 0 0" />
+      <mass
+        value="0.110705393297334" />
+      <inertia
+        ixx="0.000148711663638898"
+        ixy="2.86492892442963E-10"
+        ixz="-4.29536070632896E-10"
+        iyy="0.000134560520408694"
+        iyz="6.93339150142361E-06"
+        izz="0.000114866435635121" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint5"
+    type="revolute">
+    <origin
+      xyz="0 -0.179550330300843 0.0445499999999933"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="left_link4" />
+    <child
+      link="left_link5" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="left_link6">
+    <inertial>
+      <origin
+        xyz="3.18937636439864E-08 -0.0575208767815925 0.00750812198190076"
+        rpy="0 0 0" />
+      <mass
+        value="0.0830295567603671" />
+      <inertia
+        ixx="0.000165076149582632"
+        ixy="-3.03347314281022E-10"
+        ixz="-1.77988601789671E-10"
+        iyy="5.83683485368375E-05"
+        iyz="3.75723699943757E-05"
+        izz="0.000165209730033056" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint6"
+    type="revolute">
+    <origin
+      xyz="0 -0.0486600000000227 0.0589999999999989"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="left_link5" />
+    <child
+      link="left_link6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="left_link7">
+    <inertial>
+      <origin
+        xyz="1.38777878078145E-17 0 0.00499999999999912"
+        rpy="0 0 0" />
+      <mass
+        value="0.01661902513749" />
+      <inertia
+        ixx="2.3363579505788E-06"
+        ixy="5.65818086842596E-23"
+        ixz="-1.28693100257087E-22"
+        iyy="2.3363579505788E-06"
+        iyz="1.46245532299519E-21"
+        izz="4.3957321488661E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/left_link7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_joint7"
+    type="revolute">
+    <origin
+      xyz="0 -0.11155033030084 0.0486600000000225"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="left_link6" />
+    <child
+      link="left_link7" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link1">
+    <inertial>
+      <origin
+        xyz="-0.0231993689647388 0.0366489434157511 0.0887618403757711"
+        rpy="0 0 0" />
+      <mass
+        value="2.59480435895887E-06" />
+      <inertia
+        ixx="3.22284638661512E-12"
+        ixy="-2.6582098135301E-26"
+        ixz="9.42683269481016E-17"
+        iyy="2.95131363887475E-13"
+        iyz="-1.035429466086E-26"
+        izz="3.22433677852312E-12" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint1"
+    type="revolute">
+    <origin
+      xyz="0.010173 -0.20995 -0.049457"
+      rpy="0 -1.3963 1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="right_link1" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link2">
+    <inertial>
+      <origin
+        xyz="-0.0324850100124808 -0.0892518540603879 0.0474339776010266"
+        rpy="0 0 0" />
+      <mass
+        value="0.387419749014232" />
+      <inertia
+        ixx="0.000893510172226171"
+        ixy="-3.00161533623054E-05"
+        ixz="8.47201134964117E-07"
+        iyy="0.000821968181279474"
+        iyz="2.3235266703991E-06"
+        izz="0.000622669765677155" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint2"
+    type="revolute">
+    <origin
+      xyz="0 0.048624400689473 0.068199999999994"
+      rpy="1.57079632679491 1.22173047639604 0" />
+    <parent
+      link="right_link1" />
+    <child
+      link="right_link2" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link3">
+    <inertial>
+      <origin
+        xyz="3.21341321607438E-09 0.000107009747530432 0.0712277807225222"
+        rpy="0 0 0" />
+      <mass
+        value="0.215052780264091" />
+      <inertia
+        ixx="0.000546068991714394"
+        ixy="-2.25912168118567E-09"
+        ixz="-3.68747194445346E-10"
+        iyy="0.000734398304635715"
+        iyz="-1.12519158028599E-06"
+        izz="0.000395397110328423" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint3"
+    type="revolute">
+    <origin
+      xyz="-0.0746287952736618 -0.205040929855488 0.0475999999999999"
+      rpy="1.219560686105467 -1.5707963267949 0" />
+    <parent
+      link="right_link2" />
+    <child
+      link="right_link3" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link4">
+    <inertial>
+      <origin
+        xyz="-1.83211927989868E-08 -0.0670764367489877 0.0448406762002014"
+        rpy="0 0 0" />
+      <mass
+        value="0.268208213656121" />
+      <inertia
+        ixx="0.000645879875489632"
+        ixy="2.49247409951033E-10"
+        ixz="-1.7522993718436E-10"
+        iyy="0.000508251687167383"
+        iyz="-3.04620708652743E-06"
+        izz="0.000400653065254845" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint4"
+    type="revolute">
+    <origin
+      xyz="0 0.0443396358123755 0.120235908166672"
+      rpy="-1.57318583935484 0 -3.14159265358979" />
+    <parent
+      link="right_link3" />
+    <child
+      link="right_link4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link5">
+    <inertial>
+      <origin
+        xyz="3.76145485106449E-07 0.00490411459679667 0.0428419525269668"
+        rpy="0 0 0" />
+      <mass
+        value="0.11070032964941" />
+      <inertia
+        ixx="0.000148711902546417"
+        ixy="2.48877259081316E-10"
+        ixz="5.71147573981934E-10"
+        iyy="0.000134560584708116"
+        iyz="-6.9331597135344E-06"
+        izz="0.00011486655884415" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint5"
+    type="revolute">
+    <origin
+      xyz="0 -0.179550330300842 0.0445499999999934"
+      rpy="-1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="right_link4" />
+    <child
+      link="right_link5" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link6">
+    <inertial>
+      <origin
+        xyz="6.53225072505537E-08 -0.0575201844360035 0.00750837194225325"
+        rpy="0 0 0" />
+      <mass
+        value="0.0830301777210041" />
+      <inertia
+        ixx="0.000165083950655931"
+        ixy="-2.22250550122003E-10"
+        ixz="-1.42736623273169E-10"
+        iyy="5.83716149197729E-05"
+        iyz="3.75729561383226E-05"
+        izz="0.000165215082196605" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint6"
+    type="revolute">
+    <origin
+      xyz="0 0.0486600000000228 0.0589999999999989"
+      rpy="-1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="right_link5" />
+    <child
+      link="right_link6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+  <link
+    name="right_link7">
+    <inertial>
+      <origin
+        xyz="0 2.44526621173691E-14 0.00500000000000378"
+        rpy="0 0 0" />
+      <mass
+        value="0.01661902513749" />
+      <inertia
+        ixx="2.3363579505788E-06"
+        ixy="3.57839031901782E-23"
+        ixz="-4.39594173252171E-23"
+        iyy="2.3363579505788E-06"
+        iyz="1.05879118406788E-21"
+        izz="4.3957321488661E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://tilt_kaixuan/meshes/right_link7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_joint7"
+    type="revolute">
+    <origin
+      xyz="0 -0.111550330300839 0.0486600000000225"
+      rpy="-1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="right_link6" />
+    <child
+      link="right_link7" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.141592653589793"
+      upper="3.141592653589793"
+      effort="100"
+      velocity="3.141592653589793" />
+  </joint>
+</robot>

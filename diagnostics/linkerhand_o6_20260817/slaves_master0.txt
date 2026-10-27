@@ -1,0 +1,8 @@
+0  0:0  PREOP  +  AX58400_MotorControl
+1  0:1  PREOP  +  WEDO_MotorControl
+2  0:2  PREOP  +  AX58400_MotorControl
+3  0:3  PREOP  +  WEDO_MotorControl
+4  0:4  PREOP  +  AX58400_MotorControl
+5  0:5  PREOP  +  AX58400_MotorControl
+6  0:6  PREOP  +  AX58400_MotorControl
+7  0:7  PREOP  +  LinkerHand O6 EtherCAT-CAN Gateway

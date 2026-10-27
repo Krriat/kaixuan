@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>kaixuan_can_hardware</name>
+  <version>0.0.1</version>
+  <description>ros2_control hardware plugin for the dual-arm Kaixuan robot using direct IgH EtherCAT CiA402 CSP.</description>
+  <maintainer email="you@example.com">ranger</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>rclcpp_action</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>control_msgs</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>diagnostic_msgs</depend>
+
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>tilt_kaixuan</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <pluginlib plugin_manifest="kaixuan_can_hardware_plugins.xml"/>
+  </export>
+</package>

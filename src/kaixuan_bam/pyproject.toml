@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kaixuan-bam"
+version = "0.1.0"
+description = "Bootstrap Better Actuator Models for the Kaixuan KGU dual arm"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "better-actuator-models==1.0.2",
+]
+
+[tool.setuptools.packages.find]
+include = ["kaixuan_bam*"]
+
+[tool.setuptools.package-data]
+kaixuan_bam = ["params/**/*.json", "config/*.json"]

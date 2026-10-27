@@ -1,0 +1,85 @@
+right
+        "13.33",
+        "-71.07",
+        "198.99",
+        "7.89",
+        "21.78",
+        "55.81",
+        "0",
+
+left
+        "-2.28",
+        "-282.70",
+        "-18.27",
+        "1.00",
+        "-53.26",
+        "3.81",
+        "0",
+
+sudo ethercatctl start
+sudo ethercat master
+sudo ethercat slaves
+
+电机层启动op shineng：
+sudo python3 prepare_ethercat_op_csp.py --stop-conflicts
+
+run motor(增量):
+sudo python3 calibrate_joint_ethercat.py right_joint5 --degrees -5
+
+sudo python3 calibrate_joint_ethercat.py left_joint6 --degrees 30
+
+read position:
+sudo python3 /home/niic/cxl/NIIC-EtherCAT-Demo-4.1.4-NECRO/src/read_14_positions_live.py --once --print_every 50
+
+下op：
+sudo python3 prepare_ethercat_op_csp.py --stop
+
+ros2控制层启动op：
+cd /home/niic/cxl/ros2_control
+sudo -E bash -lc 'source /opt/ros/humble/setup.bash && source /home/niic/cxl/ros2_control/install/setup.bash && ros2 launch kaixuan3_config moveit_bringup.launch.py use_real_hardware:=true use_rviz:=false'
+
+# 本机普通用户在这台机器上查看 topic / 调本地脚本时，先强制 DDS 走 UDP
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
+ros2 topic echo /joint_states --once
+python3 /home/niic/cxl/ros2_control/src/normal/get_position.py
+
+# 需要临时恢复到不可执行状态时
+python3 /home/niic/cxl/ros2_control/src/normal/activate_arm_controllers.py --deactivate
+
+# 单关节绝对角度控制（其余6轴保持当前角度）
+python3 /home/niic/cxl/ros2_control/src/normal/jog_joint.py right_joint1 --degrees 10 --duration 3
+
+# 单关节增量角度控制
+python3 /home/niic/cxl/ros2_control/src/normal/jog_joint.py right_joint1 --delta-degrees -10 --duration 5
+
+ros2 launch robot_voice_nodes app_bridge.launch.py
+
+sudo -E bash -lc 'source /opt/ros/humble/setup.bash && source /home/niic/cxl/ros2_control/install/setup.bash && ros2 launch kaixuan3_config rviz_only.launch.py'
+
+
+进入op，设6060 为8，读6064，赋值给607a，6040给6-7-15，改607a。
+
+echo $ROS_DOMAIN_ID $RMW_IMPLEMENTATION $ROS_LOCALHOST_ONLY
+export ROS_DOMAIN_ID=1
+export ROS_LOCALHOST_ONLY=0
+unset RMW_IMPLEMENTATION 
+
+自己电脑运行：
+ros2 launch kaixuan3_config rviz_only.launch.py
+
+cd /home/niic/cxl/ros2_control
+source /opt/ros/humble/setup.bash
+colcon build
+source install/setup.bash
+ros2 launch kaixuan3_config rviz_only.launch.py
+
+echo $ROS_DOMAIN_ID $RMW_IMPLEMENTATION $ROS_LOCALHOST_ONLY
+
+export ROS_DOMAIN_ID=1
+export ROS_LOCALHOST_ONLY=0
+unset RMW_IMPLEMENTATION
+
+
+sudo -E bash -lc 'source /opt/ros/humble/setup.bash && source /home/niic/cxl/ros2_control/install/setup.bash && ros2 launch kaixuan3_config rviz_only.launch.py'
+
+colcon build --packages-skip kaixuan_can_hardware && source setup.bash

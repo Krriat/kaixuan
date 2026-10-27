@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: tilt_kaixuan
+    relative_path: urdf/整体urdf.urdf
+  srdf:
+    relative_path: config/kaixuan1.srdf
+  package_settings:
+    author_name: vito
+    author_email: 2919423005@qq.com
+    generated_timestamp: 1766025677
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity

@@ -1,0 +1,24 @@
+/build/
+/install/
+/log/
+**/__pycache__/
+*.py[cod]
+
+# Runtime captures and incident data; keep the device interface reference.
+/diagnostics/*
+!/diagnostics/linkerhand_o6_20260817/
+/drop_frames*.csv
+
+# Generated transfer bundles.
+/*.tar.gz
+/*.tar.gz.sha256
+/*.zip
+
+# Local development state and credentials.
+**/.vscode/
+**/.pytest_cache/
+**/.venv/
+*.egg-info/
+.env
+.env.*
+!.env.example
