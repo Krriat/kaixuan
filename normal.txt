@@ -188,3 +188,7 @@ ros2 launch kaixuan3_config moveit_bringup.launch.py \
   use_rviz:=false \
   active_arm:=left
 
+git status
+git add -A
+git commit -m "继续清理不再使用的文件"
+git push
