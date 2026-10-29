@@ -1,0 +1,464 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="kaixuan1">
+  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs and shoulder attachment transforms. -->
+  <link name="world" />
+  <link name="base_link">
+    <inertial>
+      <origin xyz="8.69791479723436E-05 -1.00630614952024E-11 -0.454814742530578" rpy="0 0 0" />
+      <mass value="22.2097166637865" />
+      <inertia ixx="1.6910180658421" ixy="3.69272938818943E-11" ixz="-2.66643401391567E-11" iyy="1.67605889385619" iyz="-5.56085993225209E-12" izz="0.0872412077441956" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/body/base_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/body/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="world_to_base" type="fixed">
+    <origin xyz="0 0 1" rpy="0 0 0" />
+    <parent link="world" />
+    <child link="base_link" />
+  </joint>
+  <link name="left_link1">
+    <inertial>
+      <origin xyz="-0.00205432160417818 -0.00141792269570674 0.0602306905316403" rpy="0 0 0" />
+      <mass value="0.900353226708732" />
+      <inertia ixx="0.0019798027282365" ixy="1.43975493456066E-06" ixz="3.1882808861573E-05" iyy="0.002180314391962" iyz="7.09441451513993E-06" izz="0.00155187680920738" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link1.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_link2">
+    <inertial>
+      <origin xyz="0.00169820513299768 -0.0850681024875293 -0.0186008951163804" rpy="0 0 0" />
+      <mass value="0.604151914481596" />
+      <inertia ixx="0.00246317220940863" ixy="-4.90627874413549E-05" ixz="-2.71338448701363E-05" iyy="0.00102580908234191" iyz="0.00054967481756561" izz="0.00227788065207115" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link2.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_link3">
+    <inertial>
+      <origin xyz="0.00356504255324686 -0.00110380082499956 0.132942517414466" rpy="0 0 0" />
+      <mass value="0.826267709769756" />
+      <inertia ixx="0.00290608913488917" ixy="2.04402106628454E-06" ixz="-7.74282491163121E-05" iyy="0.00287256432227637" iyz="6.74849387567589E-05" izz="0.00102563146498865" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link3.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_link4">
+    <inertial>
+      <origin xyz="0.0761613314223767 -0.00582770421059538 -0.00773383654141235" rpy="0 0 0" />
+      <mass value="0.740152943453306" />
+      <inertia ixx="0.00115914304450335" ixy="2.22685136560591E-05" ixz="1.10292661002893E-05" iyy="0.00168010097583795" iyz="1.59324000795062E-07" izz="0.00120594399270672" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link4.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_link5">
+    <inertial>
+      <origin xyz="-0.00452262190859698 4.78782853085419E-05 0.0693942356786784" rpy="0 0 0" />
+      <mass value="0.342089785077591" />
+      <inertia ixx="0.000414342797863252" ixy="-4.20833306318144E-07" ixz="-6.8594691666444E-06" iyy="0.000400092643924616" iyz="-4.2224723583763E-07" izz="0.000298358665006876" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 3.141592653589793" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link5.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 3.141592653589793" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_link6">
+    <inertial>
+      <origin xyz="0.0539058287882931 6.81719958912502E-05 0.0130128701943977" rpy="0 0 0" />
+      <mass value="0.369589460651425" />
+      <inertia ixx="0.000409963019871473" ixy="2.58019083726218E-07" ixz="0.000166748959331073" iyy="0.000649906868832628" iyz="2.92154977696718E-07" izz="0.000567227820629346" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link6.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_link7">
+    <inertial>
+      <origin xyz="-9.9475983006414E-14 1.38777878078145E-17 0.0695499999999997" rpy="0 0 0" />
+      <mass value="0.0005235987755983" />
+      <inertia ixx="5.23598775598301E-09" ixy="3.48688191749923E-38" ixz="1.10202595389589E-38" iyy="5.23598775598301E-09" iyz="-1.10504790539786E-25" izz="5.23598775598301E-09" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link7.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_ee">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.0005235987755983" />
+      <inertia ixx="5.23598775598301E-09" ixy="3.48688191749923E-38" ixz="1.10202595389589E-38" iyy="5.23598775598301E-09" iyz="-1.10504790539786E-25" izz="5.23598775598301E-09" />
+    </inertial>
+  </link>
+  <joint name="left_joint1" type="revolute">
+    <origin xyz="0 0.20995 -0.049457" rpy="-5.551115123125783e-16 1.3963 1.570803673205103" />
+    <parent link="base_link" />
+    <child link="left_link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_joint2" type="revolute">
+    <origin xyz="0 0 0.0727" rpy="1.5708 -1.5708 0" />
+    <parent link="left_link1" />
+    <child link="left_link2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_joint3" type="revolute">
+    <origin xyz="0 -0.1386 -0.0055244" rpy="1.5708 0 0" />
+    <parent link="left_link2" />
+    <child link="left_link3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_joint4" type="revolute">
+    <origin xyz="0.00815 -0.003 0.19985" rpy="0 -1.5708 3.141592653589793" />
+    <parent link="left_link3" />
+    <child link="left_link4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_joint5" type="revolute">
+    <origin xyz="0.15445 -0.005 -0.00815" rpy="0 1.5708 0" />
+    <parent link="left_link4" />
+    <child link="left_link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_joint6" type="revolute">
+    <origin xyz="0 0 0.08405" rpy="0 -1.5708 0" />
+    <parent link="left_link5" />
+    <child link="left_link6" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_joint7" type="revolute">
+    <origin xyz="0.08945 0 0" rpy="0 1.5708 0" />
+    <parent link="left_link6" />
+    <child link="left_link7" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="left_ee" type="fixed">
+    <origin xyz="0 0 0.06955" rpy="0 0 0" />
+    <parent link="left_link7" />
+    <child link="left_ee" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <link name="right_link1">
+    <inertial>
+      <origin xyz="-0.00233973676902388 0.00557394702329454 0.058498277014619" rpy="0 0 0" />
+      <mass value="0.790522678844094" />
+      <inertia ixx="0.0019059627634599" ixy="1.43977208278853E-06" ixz="3.18827837807906E-05" iyy="0.00202854916561761" iyz="7.09442913160826E-06" izz="0.00147113393544685" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link1.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_link2">
+    <inertial>
+      <origin xyz="-0.00269556026449437 -0.0935527894752916 0.0178408649970544" rpy="0 0 0" />
+      <mass value="0.655022043397898" />
+      <inertia ixx="0.00248110029710012" ixy="4.73346935553376E-05" ixz="-2.45747724466433E-05" iyy="0.00106947897483155" iyz="-0.000550773962144847" izz="0.00230769578980836" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link2.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_link3">
+    <inertial>
+      <origin xyz="-0.00410691660261506 0.00127364005788846 0.146814500245128" rpy="0 0 0" />
+      <mass value="0.717498508661569" />
+      <inertia ixx="0.00285607244046043" ixy="2.04396599055308E-06" ixz="7.74319001507057E-05" iyy="0.00282264254798835" iyz="-6.74909156435721E-05" izz="0.000929573909212603" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link3.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link3_collision_original.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_link4">
+    <inertial>
+      <origin xyz="0.0761613317842931 0.00582770443447263 0.00773383660963991" rpy="0 0 0" />
+      <mass value="0.740152946333247" />
+      <inertia ixx="0.00115914303011776" ixy="-2.22685140123259E-05" ixz="-1.10292662047883E-05" iyy="0.00168010095665981" iyz="1.59322185462316E-07" izz="0.00120594399758743" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link4.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_link5">
+    <inertial>
+      <origin xyz="0.00452262167011572 -4.78780778431082E-05 0.0693942350614427" rpy="0 0 0" />
+      <mass value="0.342089789995011" />
+      <inertia ixx="0.000414342800571156" ixy="-4.20832594398887E-07" ixz="6.85946987601414E-06" iyy="0.000400092644836652" iyz="4.22250698241597E-07" izz="0.000298358665421877" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 3.141592653589793" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link5.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 3.141592653589793" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_link6">
+    <inertial>
+      <origin xyz="0.0539058293197083 -6.81719601647035E-05 -0.0130128699898111" rpy="0 0 0" />
+      <mass value="0.369589471145764" />
+      <inertia ixx="0.000409963013693443" ixy="-2.5801951237503E-07" ixz="-0.000166748956653578" iyy="0.000649906864602189" iyz="2.92155011803076E-07" izz="0.000567227822557007" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link6.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_link7">
+    <inertial>
+      <origin xyz="9.9552310839357E-14 -4.16333634234434E-17 0.0695499999999997" rpy="0 0 0" />
+      <mass value="0.0005235987755983" />
+      <inertia ixx="5.23598775598301E-09" ixy="2.35098870164551E-38" ixz="3.34095588761524E-52" iyy="5.23598775598301E-09" iyz="-1.46936793852786E-39" izz="5.23598775598301E-09" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link7.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_ee">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.0005235987755983" />
+      <inertia ixx="5.23598775598301E-09" ixy="2.35098870164551E-38" ixz="3.34549301337815E-52" iyy="5.23598775598301E-09" iyz="-1.47977117832701E-39" izz="5.23598775598301E-09" />
+    </inertial>
+  </link>
+  <joint name="right_joint1" type="revolute">
+    <origin xyz="0.010173 -0.20995 -0.049457" rpy="-7.771561172376096e-16 1.3963 -1.570792653589794" />
+    <parent link="base_link" />
+    <child link="right_link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_joint2" type="revolute">
+    <origin xyz="0 0 0.0727" rpy="1.5708 1.5708 3.141592653589793" />
+    <parent link="right_link1" />
+    <child link="right_link2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_joint3" type="revolute">
+    <origin xyz="0 -0.1386 0.0055244" rpy="1.5708 0 0" />
+    <parent link="right_link2" />
+    <child link="right_link3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_joint4" type="revolute">
+    <origin xyz="-0.00815 0.003 0.19985" rpy="0 -1.5708 3.141592653589793" />
+    <parent link="right_link3" />
+    <child link="right_link4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_joint5" type="revolute">
+    <origin xyz="0.15445 0.005 0.00815" rpy="0 1.5708 0" />
+    <parent link="right_link4" />
+    <child link="right_link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_joint6" type="revolute">
+    <origin xyz="0 0 0.08405" rpy="0 -1.5708 0" />
+    <parent link="right_link5" />
+    <child link="right_link6" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_joint7" type="revolute">
+    <origin xyz="0.08945 0 0" rpy="0 1.5708 0" />
+    <parent link="right_link6" />
+    <child link="right_link7" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+  </joint>
+  <joint name="right_ee" type="fixed">
+    <origin xyz="0 0 0.06955" rpy="0 0 0" />
+    <parent link="right_link7" />
+    <child link="right_ee" />
+    <axis xyz="0 0 0" />
+  </joint>
+</robot>

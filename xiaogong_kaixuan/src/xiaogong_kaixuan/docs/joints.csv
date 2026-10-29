@@ -1,0 +1,18 @@
+﻿name,type,parent,child,xyz_m,rpy_rad,axis,lower,upper,effort,velocity
+world_to_base,fixed,world,base_link,0 0 1,0 0 0,,,,,
+left_joint1,revolute,base_link,left_link1,0 0.20995 -0.049457,-5.551115123125783e-16 1.3963 1.570803673205103,0 0 1,-3.14,3.14,0,0
+left_joint2,revolute,left_link1,left_link2,0 0 0.0727,1.5708 -1.5708 0,0 0 1,-3.14,3.14,0,0
+left_joint3,revolute,left_link2,left_link3,0 -0.1386 -0.0055244,1.5708 0 0,0 0 1,-3.14,3.14,0,0
+left_joint4,revolute,left_link3,left_link4,0.00815 -0.003 0.19985,0 -1.5708 3.141592653589793,0 0 1,-3.14,3.14,0,0
+left_joint5,revolute,left_link4,left_link5,0.15445 -0.005 -0.00815,0 1.5708 0,0 0 1,-3.14,3.14,0,0
+left_joint6,revolute,left_link5,left_link6,0 0 0.08405,0 -1.5708 0,0 0 1,-3.14,3.14,0,0
+left_joint7,revolute,left_link6,left_link7,0.08945 0 0,0 1.5708 0,0 0 1,-3.14,3.14,0,0
+left_ee,fixed,left_link7,left_ee,0 0 0.06955,0 0 0,0 0 0,,,,
+right_joint1,revolute,base_link,right_link1,0.010173 -0.20995 -0.049457,-7.771561172376096e-16 1.3963 -1.570792653589794,0 0 1,-3.14,3.14,0,0
+right_joint2,revolute,right_link1,right_link2,0 0 0.0727,1.5708 1.5708 3.141592653589793,0 0 1,-3.14,3.14,0,0
+right_joint3,revolute,right_link2,right_link3,0 -0.1386 0.0055244,1.5708 0 0,0 0 1,-3.14,3.14,0,0
+right_joint4,revolute,right_link3,right_link4,-0.00815 0.003 0.19985,0 -1.5708 3.141592653589793,0 0 1,-3.14,3.14,0,0
+right_joint5,revolute,right_link4,right_link5,0.15445 0.005 0.00815,0 1.5708 0,0 0 1,-3.14,3.14,0,0
+right_joint6,revolute,right_link5,right_link6,0 0 0.08405,0 -1.5708 0,0 0 1,-3.14,3.14,0,0
+right_joint7,revolute,right_link6,right_link7,0.08945 0 0,0 1.5708 0,0 0 1,-3.14,3.14,0,0
+right_ee,fixed,right_link7,right_ee,0 0 0.06955,0 0 0,0 0 0,,,,

@@ -1,0 +1,12 @@
+/build/
+/install/
+/log/
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+**/.vscode/
+**/.venv/
+*.egg-info/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,9 @@
+{
+  "target": "Ubuntu 22.04 / ROS 2 Humble",
+  "default_arm": "left",
+  "default_domain": 26,
+  "source_model": "xiaogong_kaixuan/src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
+  "source_model_sha256": "345d3027c8f928777bd9c31cf8a1dbaa0c88ac8baec069f70e56fba6fe8b1abe",
+  "source_srdf_sha256": "0a3176062f9a9ec0740917edf33cf3cbe7022cc5aa15eba1ad525bd458648b87",
+  "validation": "Model, mesh, SRDF and mock-control checks complete. Seven left-arm EtherCAT drives returned read-only encoder positions with no error code. Motors were not enabled and physical motion was not tested; right arm is not connected."
+}

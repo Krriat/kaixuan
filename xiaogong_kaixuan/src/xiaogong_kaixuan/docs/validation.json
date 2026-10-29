@@ -1,0 +1,160 @@
+{
+  "status": "PASS",
+  "robot": "xiaogong-kaixuan",
+  "links": 18,
+  "joints": 17,
+  "moving_joints": 14,
+  "root": "world",
+  "source_body_mesh_and_inertial_preserved": true,
+  "old_junji_body_removed": true,
+  "arm_links_preserved": [
+    "left_link1",
+    "left_link2",
+    "left_link3",
+    "left_link4",
+    "left_link5",
+    "left_link6",
+    "left_link7",
+    "left_ee",
+    "right_link1",
+    "right_link2",
+    "right_link3",
+    "right_link4",
+    "right_link5",
+    "right_link6",
+    "right_link7",
+    "right_ee"
+  ],
+  "arm_internal_and_tool_joints_preserved": [
+    "left_joint2",
+    "left_joint3",
+    "left_joint4",
+    "left_joint5",
+    "left_joint6",
+    "left_joint7",
+    "left_ee",
+    "right_joint2",
+    "right_joint3",
+    "right_joint4",
+    "right_joint5",
+    "right_joint6",
+    "right_joint7",
+    "right_ee"
+  ],
+  "arm_joint1_axes_limits_and_other_properties_preserved": true,
+  "shoulder_positions_and_axes_match_target_body": true,
+  "all_meshes_byte_identical_to_named_sources": true,
+  "mesh_references": 30,
+  "unique_mesh_files": 16,
+  "meshes": {
+    "meshes/body/base_link.STL": {
+      "triangles": 40088,
+      "sha256": "9a7c19eae77273c5e14c50b958fb81ec74ad4acb5e401ee1909889d6b57c95e7",
+      "size_bytes": 2004484
+    },
+    "meshes/arms/left_link1.STL": {
+      "triangles": 157396,
+      "sha256": "32c8dad7ac21cab1f5fee8ea85c9d53b703e19bd9a693606dedf748cba522fe9",
+      "size_bytes": 7869884
+    },
+    "meshes/arms/left_link2.STL": {
+      "triangles": 15016,
+      "sha256": "d151eeac27105e9979d4f86c3f2ee99d254046520ba3c62e7608c8931847c8ba",
+      "size_bytes": 750884
+    },
+    "meshes/arms/left_link3.STL": {
+      "triangles": 140418,
+      "sha256": "35246ff9e48ecc32ec4063b72e87c8d4618c291002d32f0654d148d299ff49b4",
+      "size_bytes": 7020984
+    },
+    "meshes/arms/left_link4.STL": {
+      "triangles": 103684,
+      "sha256": "7814df5c303918cc5b6712bf6dfd4c7d967a7a62dbac6a7bcf67ff22ff67e0d9",
+      "size_bytes": 5184284
+    },
+    "meshes/arms/left_link5.STL": {
+      "triangles": 104400,
+      "sha256": "6776bf49ac3eed4d928538b6bd0501ecdbbe983cacae183427282b9cf62d8b37",
+      "size_bytes": 5220084
+    },
+    "meshes/arms/left_link6.STL": {
+      "triangles": 101328,
+      "sha256": "a6284f71719c4048af8b475d4b74a3a8099889e4313dd6f6314ea121d01bd59a",
+      "size_bytes": 5066484
+    },
+    "meshes/arms/left_link7.STL": {
+      "triangles": 2352,
+      "sha256": "30de4c02ad6fd112310210cf0e2655cd9299c332f389a2e4ce6190046e9931d3",
+      "size_bytes": 117684
+    },
+    "meshes/arms/right_link1.STL": {
+      "triangles": 156174,
+      "sha256": "4fa68eade95ea7f4087c2d78b1393c6a85567b9ef5c34ffcb290c90da85e8496",
+      "size_bytes": 7808784
+    },
+    "meshes/arms/right_link2.STL": {
+      "triangles": 140300,
+      "sha256": "b58b72d9dcd3833b0b0dfe24a62e8e95f06bd14adaf7fa5057ef3c540a2767d0",
+      "size_bytes": 7015084
+    },
+    "meshes/arms/right_link3.STL": {
+      "triangles": 140416,
+      "sha256": "925d8f2e1c9a3848358d951403a92fcd636214e50c8e0f0e6605b5cc07901331",
+      "size_bytes": 7020884
+    },
+    "meshes/arms/right_link3_collision_original.STL": {
+      "triangles": 137852,
+      "sha256": "b8d258cd470bb5aa8f3b04fd1bdbfaaa6964336c86737862585bdc7a1af8a651",
+      "size_bytes": 6892684
+    },
+    "meshes/arms/right_link4.STL": {
+      "triangles": 103684,
+      "sha256": "f44cd3ca64a58e5da7ebc9ffed1f9cffb6162c2bd3a5ef04de61586792a11f19",
+      "size_bytes": 5184284
+    },
+    "meshes/arms/right_link5.STL": {
+      "triangles": 104400,
+      "sha256": "7f6fc97ea99ffb1033eefbdaf37f700eaaa28a0723f0e350e97d6c76fd72c182",
+      "size_bytes": 5220084
+    },
+    "meshes/arms/right_link6.STL": {
+      "triangles": 101328,
+      "sha256": "c38beae4269bad8c5e635fd4b4e1c4237e97c3f8d38185639f7cbd975b6cd8fa",
+      "size_bytes": 5066484
+    },
+    "meshes/arms/right_link7.STL": {
+      "triangles": 2352,
+      "sha256": "70ac5b46485097e7bfdc8b0f4d6bca7c6f747865a19cf33091b8ec0b9176b81f",
+      "size_bytes": 117684
+    }
+  },
+  "single_connected_acyclic_tree": true,
+  "inertials_positive_and_physically_consistent": 17,
+  "shoulder_origins_world_m": {
+    "left": [
+      0.0,
+      0.20995,
+      0.950543
+    ],
+    "right": [
+      0.010173,
+      -0.20995,
+      0.950543
+    ]
+  },
+  "source_urdfs_unchanged": true,
+  "python_launch_syntax_valid": true,
+  "ros2_runtime_tested": false,
+  "limits_note": "The original kaixu_arm effort/velocity limits are 0. They are deliberately preserved; no original hardware-control configuration from the other robot is included.",
+  "mount_note": "Shoulder axes/positions follow the new torso, and local clocking is chosen to keep the 7-6 arms hanging at zero. Bolt pattern/mechanical fit has not been assessed from URDF meshes.",
+  "browser_visual_verification": {
+    "all_15_visual_instances_loaded": true,
+    "all_14_joint_controls_available": true,
+    "zero_pose_viewed": true,
+    "bent_pose_viewed": true,
+    "screenshots": [
+      "preview_zero.png",
+      "preview_bent.png"
+    ]
+  }
+}

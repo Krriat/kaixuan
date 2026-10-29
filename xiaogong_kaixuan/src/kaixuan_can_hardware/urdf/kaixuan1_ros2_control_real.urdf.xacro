@@ -1,0 +1,181 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="kaixuan1">
+  <!-- Real-hardware ros2_control wrapper for dual-arm EtherCAT control. -->
+
+  <xacro:arg name="cycle_time_ns" default="1000000" />
+  <xacro:arg name="shift_time_ns" default="0" />
+  <xacro:arg name="priority" default="90" />
+  <xacro:arg name="bus_diagnostics" default="true" />
+  <xacro:arg name="active_arm" default="both" />
+  <xacro:arg name="master0_affinity" default="6" />
+  <xacro:arg name="master1_affinity" default="7" />
+  <!-- KGU motor revolutions per output-joint revolution. -->
+  <xacro:arg name="right_gear_ratio1" default="101.0" />
+  <xacro:arg name="right_gear_ratio2" default="101.0" />
+  <xacro:arg name="right_gear_ratio3" default="81.0" />
+  <xacro:arg name="right_gear_ratio4" default="81.0" />
+  <xacro:arg name="right_gear_ratio5" default="101.0" />
+  <xacro:arg name="right_gear_ratio6" default="101.0" />
+  <xacro:arg name="right_gear_ratio7" default="101.0" />
+  <xacro:arg name="left_gear_ratio1" default="101.0" />
+  <xacro:arg name="left_gear_ratio2" default="101.0" />
+  <xacro:arg name="left_gear_ratio3" default="81.0" />
+  <xacro:arg name="left_gear_ratio4" default="81.0" />
+  <xacro:arg name="left_gear_ratio5" default="101.0" />
+  <xacro:arg name="left_gear_ratio6" default="101.0" />
+  <xacro:arg name="left_gear_ratio7" default="101.0" />
+  <xacro:arg name="o6_command_timeout_ms" default="0" />
+  <xacro:arg name="o6_max_step" default="255" />
+  <xacro:arg name="o6_imu_only" default="false" />
+
+  <!-- Right arm joint offset in degrees. Keep legacy comp0..comp6 for compatibility. -->
+  <xacro:arg name="comp0" default="0" />
+  <xacro:arg name="comp1" default="0" />
+  <xacro:arg name="comp2" default="0" />
+  <xacro:arg name="comp3" default="0" />
+  <xacro:arg name="comp4" default="0" />
+  <xacro:arg name="comp5" default="0" />
+  <xacro:arg name="comp6" default="0" />
+  <xacro:arg name="left_comp0" default="0" />
+  <xacro:arg name="left_comp1" default="0" />
+  <xacro:arg name="left_comp2" default="0" />
+  <xacro:arg name="left_comp3" default="0" />
+  <xacro:arg name="left_comp4" default="0" />
+  <xacro:arg name="left_comp5" default="0" />
+  <xacro:arg name="left_comp6" default="0" />
+
+  <!-- Encoder direction in the ROS joint coordinate system. -->
+  <xacro:arg name="right_direction1" default="-1" />
+  <xacro:arg name="right_direction2" default="1" />
+  <xacro:arg name="right_direction3" default="-1" />
+  <xacro:arg name="right_direction4" default="-1" />
+  <xacro:arg name="right_direction5" default="-1" />
+  <xacro:arg name="right_direction6" default="-1" />
+  <xacro:arg name="right_direction7" default="1" />
+
+  <!-- Xiaogong dual-arm robot model. Hardware mappings require calibration before use. -->
+  <xacro:include filename="$(find xiaogong_kaixuan)/urdf/xiaogong-kaixuan.urdf" />
+
+  <ros2_control name="KaixuanCanSystem" type="system">
+    <hardware>
+      <plugin>kaixuan_can_hardware/KaixuanCanSystem</plugin>
+      <param name="cycle_time_ns">$(arg cycle_time_ns)</param>
+      <param name="shift_time_ns">$(arg shift_time_ns)</param>
+      <param name="priority">$(arg priority)</param>
+      <param name="bus_diagnostics">$(arg bus_diagnostics)</param>
+      <param name="active_arm">$(arg active_arm)</param>
+      <param name="master0_affinity">$(arg master0_affinity)</param>
+      <param name="master1_affinity">$(arg master1_affinity)</param>
+      <param name="right_gear_ratio1">$(arg right_gear_ratio1)</param>
+      <param name="right_gear_ratio2">$(arg right_gear_ratio2)</param>
+      <param name="right_gear_ratio3">$(arg right_gear_ratio3)</param>
+      <param name="right_gear_ratio4">$(arg right_gear_ratio4)</param>
+      <param name="right_gear_ratio5">$(arg right_gear_ratio5)</param>
+      <param name="right_gear_ratio6">$(arg right_gear_ratio6)</param>
+      <param name="right_gear_ratio7">$(arg right_gear_ratio7)</param>
+      <param name="left_gear_ratio1">$(arg left_gear_ratio1)</param>
+      <param name="left_gear_ratio2">$(arg left_gear_ratio2)</param>
+      <param name="left_gear_ratio3">$(arg left_gear_ratio3)</param>
+      <param name="left_gear_ratio4">$(arg left_gear_ratio4)</param>
+      <param name="left_gear_ratio5">$(arg left_gear_ratio5)</param>
+      <param name="left_gear_ratio6">$(arg left_gear_ratio6)</param>
+      <param name="left_gear_ratio7">$(arg left_gear_ratio7)</param>
+      <param name="o6_command_timeout_ms">$(arg o6_command_timeout_ms)</param>
+      <param name="o6_max_step">$(arg o6_max_step)</param>
+      <param name="o6_imu_only">$(arg o6_imu_only)</param>
+      <param name="comp0">$(arg comp0)</param>
+      <param name="comp1">$(arg comp1)</param>
+      <param name="comp2">$(arg comp2)</param>
+      <param name="comp3">$(arg comp3)</param>
+      <param name="comp4">$(arg comp4)</param>
+      <param name="comp5">$(arg comp5)</param>
+      <param name="comp6">$(arg comp6)</param>
+      <param name="left_comp0">$(arg left_comp0)</param>
+      <param name="left_comp1">$(arg left_comp1)</param>
+      <param name="left_comp2">$(arg left_comp2)</param>
+      <param name="left_comp3">$(arg left_comp3)</param>
+      <param name="left_comp4">$(arg left_comp4)</param>
+      <param name="left_comp5">$(arg left_comp5)</param>
+      <param name="left_comp6">$(arg left_comp6)</param>
+      <param name="right_direction1">$(arg right_direction1)</param>
+      <param name="right_direction2">$(arg right_direction2)</param>
+      <param name="right_direction3">$(arg right_direction3)</param>
+      <param name="right_direction4">$(arg right_direction4)</param>
+      <param name="right_direction5">$(arg right_direction5)</param>
+      <param name="right_direction6">$(arg right_direction6)</param>
+      <param name="right_direction7">$(arg right_direction7)</param>
+    </hardware>
+
+    <joint name="right_joint1">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_joint2">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_joint3">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_joint4">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_joint5">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_joint6">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="right_joint7">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <joint name="left_joint1">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="left_joint2">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="left_joint3">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="left_joint4">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="left_joint5">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="left_joint6">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="left_joint7">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+</robot>
