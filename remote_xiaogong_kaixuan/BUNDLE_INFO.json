@@ -5,5 +5,12 @@
   "source_model": "xiaogong_kaixuan/src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
   "source_model_sha256": "345d3027c8f928777bd9c31cf8a1dbaa0c88ac8baec069f70e56fba6fe8b1abe",
   "source_srdf_sha256": "0a3176062f9a9ec0740917edf33cf3cbe7022cc5aa15eba1ad525bd458648b87",
-  "validation": "URDF geometry restored to commit 2d714d5. Left encoder compensation is configured in robot-side moveit_bringup.launch.py from the unchanged physical pose and read-only encoder samples; see xiaogong_kaixuan/src/kaixuan3_config/config/left_arm_calibration.json. No motor enable or physical motion was performed."
+  "validation": "URDF geometry restored to commit 2d714d5. Left encoder compensation is configured in robot-side moveit_bringup.launch.py from the unchanged physical pose and read-only encoder samples; see xiaogong_kaixuan/src/kaixuan3_config/config/left_arm_calibration.json. No motor enable or physical motion was performed.",
+  "python_motion_client": {
+    "entry": "move_arm.sh",
+    "api": "scripts/motion_client.py:ArmClient",
+    "example": "examples/move_left_arm.py",
+    "default": "left arm, plan only, velocity/acceleration scaling 0.1",
+    "validation": "16 unit tests passed; state, plan-only, execution and inactive-controller rejection tested with MoveIt mock controllers in ROS Domain 193. Cancellation acknowledgement may be delayed; see VALIDATION.md. No real robot motion goals sent."
+  }
 }

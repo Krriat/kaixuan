@@ -3,9 +3,9 @@
 适用：你的电脑是 Ubuntu 22.04，已安装 ROS 2 Humble，与机器人处于同一局域网。
 本包为模型、配置和 Python / Bash 脚本，不含 ARM 二进制，也不需要 colcon 编译。
 客户端模型与 `xiaogong_kaixuan/src/xiaogong_kaixuan` 中的小工凯旋 URDF、网格对应。
-左臂已完成 EtherCAT 编码器只读检查；未启用实体电机，也未验证实际运动。
+左臂已完成 EtherCAT 编码器只读检查；代码控制接口已通过模拟控制器测试，实体运动仍需现场验证。
 
-电脑端只运行 RViz；机器人端运行现有的 MoveIt `move_group`、状态发布器和 ros2_control。
+电脑端可以运行 RViz 或本包的 Python 控制程序；机器人端运行现有的 MoveIt `move_group`、状态发布器和 ros2_control。
 RViz 订阅 `/joint_states`、`/tf`、`/tf_static`、`/monitored_planning_scene`，
 通过 `/move_action` 和 `/execute_trajectory` 等 ROS 2 action / service 请求规划及执行。
 因此机器人端必须保持 bringup 运行，只有话题订阅不能完成运动控制。
@@ -96,7 +96,63 @@ bash ./start_rviz.sh arm:=right
 # 双臂：两条命令分别使用 --arm both 和 arm:=both
 ```
 
-## 4. 网络排查
+## 4. 自己的电脑：通过代码控制左臂
+
+机器人端继续运行第 2 节的 bringup，并等到 MoveIt 就绪。电脑端无需打开 RViz，使用同一套局域网配置即可。
+`move_arm.sh` 自动加载 ROS 环境、Domain 和 DDS 配置；默认左臂、速度/加速度比例均为 0.1。
+
+```bash
+cd ~/code/junji/kaixuan
+git pull --ff-only
+cd remote_xiaogong_kaixuan
+
+# 只读取七个关节角度，单位度
+bash ./move_arm.sh --state
+
+# 根据当前反馈，为第四关节增加 1°，仅规划
+bash ./move_arm.sh --joint 4 --delta-deg 1
+
+# 根据当前反馈重新规划并执行：真实左臂会运动
+bash ./move_arm.sh --joint 4 --delta-deg 1 --execute
+```
+
+七个关节的绝对目标也可以直接传入，顺序为 `left_joint1` 到 `left_joint7`：
+
+```bash
+# 示例目标，请按需要修改；不加 --execute 只规划
+bash ./move_arm.sh --joints-deg -179 -179 -7 40 179 -17 -6
+```
+
+角度使用与 RViz 相同的 ROS 关节坐标，机器人端已处理编码器补偿，代码中无需再次加减补偿。
+模型限位为 ±3.14 rad（约 ±179.908748°），超过限位的目标会被拒绝。
+`--velocity`、`--acceleration` 的范围为 `(0, 1]`，`--timeout` 为等待规划/执行结果的秒数，默认 120。
+执行前会检查实时反馈、两端 URDF 一致性和对应控制器是否激活。
+代码通过 `/move_action` 请求机器人端 MoveIt 进行规划与碰撞检查，`--execute` 才会请求执行。
+Ctrl+C 或等待超时会请求取消。若打印“取消未获确认”，机械臂可能继续原轨迹，需在现场确认状态。
+
+编写自己的 Python 程序，可从 [`examples/move_left_arm.py`](examples/move_left_arm.py) 修改：
+
+```bash
+source ./scripts/environment.sh
+python3 ./examples/move_left_arm.py             # 仅规划
+python3 ./examples/move_left_arm.py --execute   # 规划并执行
+```
+
+核心接口位于 `scripts/motion_client.py` 的 `ArmClient`，示例已包含导入、ROS 初始化和退出处理。
+在创建 `arm = ArmClient("left")` 后，可以这样设置目标：
+
+```python
+angles = arm.current_joint_angles(degrees=True)
+angles[3] += 1.0
+result = arm.move_joints(angles, degrees=True, execute=False, velocity=0.1)
+# execute=True 会请求真实执行；不指定 degrees 时角度单位为 rad。
+```
+
+`arm.jog_joint(4, 1.0, execute=True)` 则从实时反馈计算第四关节 +1° 的目标。
+API 成功后返回 `MoveGroup.Result`，可从 `result.planned_trajectory` 读取轨迹。
+规划失败、反馈过时、模型不匹配、控制器未激活或执行失败会抛出异常。
+
+## 5. 网络排查
 
 两端的 `ROS_DOMAIN_ID` 必须相同，当前机器人使用 `26`。
 客户端优先级为：终端 `ROS_DOMAIN_ID` > `KAIXUAN_ROS_DOMAIN_ID` > `network.env` 默认值 `26`。
@@ -148,10 +204,14 @@ bash ./start_rviz.sh
 
 - `start_rviz.sh`：电脑端 RViz 入口；`arm:=left` 为默认值。
 - `check_connection.sh`：只读检查反馈、TF、规划/执行接口、控制器及 URDF 关节结构。
+- `move_arm.sh`：电脑端代码控制入口，默认只规划，`--execute` 才执行。
+- `scripts/motion_client.py`：可导入的 Python `ArmClient` 和命令行程序。
+- `examples/move_left_arm.py`：左臂 Python 示例，从当前姿态计算第四关节 +1° 的目标。
 - `robot_bringup.sh`：机器人端已有工作区的启动入口；不会安装或修改驱动。
 - `model/`：当前 URDF 与全部 16 个 STL 网格。
 - `config/`：当前 SRDF、运动学、关节限制、RViz 配置、DDS UDP 配置。
 - `MANIFEST.sha256`：文件校验清单，可运行 `sha256sum -c MANIFEST.sha256`。
+- [`VALIDATION.md`](VALIDATION.md)：Python 接口的离线与模拟测试记录，以及取消请求的限制。
 
 机器人 URDF / 网格 / SRDF 改动后，应重新复制匹配的客户端文件。所有操作仍经过机器人端 MoveIt。
 
