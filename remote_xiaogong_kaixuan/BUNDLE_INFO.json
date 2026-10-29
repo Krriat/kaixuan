@@ -11,6 +11,7 @@
     "api": "scripts/motion_client.py:ArmClient",
     "example": "examples/move_left_arm.py",
     "default": "left arm, plan only, velocity/acceleration scaling 0.1",
-    "validation": "16 unit tests passed; state, plan-only, execution and inactive-controller rejection tested with MoveIt mock controllers in ROS Domain 193. Cancellation acknowledgement may be delayed; see VALIDATION.md. No real robot motion goals sent."
-  }
+    "validation": "20 unit tests passed; state, plan-only, execution and inactive-controller rejection tested with MoveIt mock controllers in ROS Domain 193. Cancellation acknowledgement may be delayed; see VALIDATION.md. No real robot motion goals sent."
+  },
+  "environment_validation": "Sourcing preserves caller errexit/nounset/pipefail across success and error paths. A failing Python process does not close a normal calling shell; invalid configuration still stops startup wrapper child processes."
 }

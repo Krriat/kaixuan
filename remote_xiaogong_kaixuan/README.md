@@ -138,6 +138,11 @@ python3 ./examples/move_left_arm.py             # 仅规划
 python3 ./examples/move_left_arm.py --execute   # 规划并执行
 ```
 
+`scripts/environment.sh` 只配置 ROS 环境，保留调用终端的 `errexit`、`nounset` 和 `pipefail` 设置。
+如果曾 source 旧版脚本，当前终端可能已被打开 `set -e`；先运行一次 `set +e`，或新开终端后使用新版。
+关节超限等 Python 错误仍会返回非零退出码，但环境脚本不会再导致普通终端跟着退出。
+通过 `bash ./move_arm.sh ...` 运行时，启动脚本的 `set -e` 只作用于它自己的子进程。
+
 核心接口位于 `scripts/motion_client.py` 的 `ArmClient`，示例已包含导入、ROS 初始化和退出处理。
 在创建 `arm = ArmClient("left")` 后，可以这样设置目标：
 
