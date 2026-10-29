@@ -175,39 +175,5 @@
       "method": "Use the new body shoulder origins/axes. Clock left -90 deg and right 180 deg to retain the original 7-6 hanging arm orientation; arm internal joint data remains unchanged."
     }
   },
-  "preservation": "Arm links, meshes, inertials, joint axes, limits and fixed tool frames are preserved. Left joint origins additionally include the zero calibration below; right joint origins retain the shoulder-adapted model.",
-  "left_zero_calibration": {
-    "date": "2026-10-29",
-    "baseline_git_commit": "2d714d5",
-    "reference": "User RViz Joints screenshot, interpreted as the desired pose at new left-arm q=0.",
-    "joint_order": [
-      "left_joint1",
-      "left_joint2",
-      "left_joint3",
-      "left_joint4",
-      "left_joint5",
-      "left_joint6",
-      "left_joint7"
-    ],
-    "offsets_deg": [
-      -180,
-      -180,
-      -7,
-      39,
-      180,
-      -17,
-      -6
-    ],
-    "original_origin_rpy_rad": {
-      "left_joint1": "-5.551115123125783e-16 1.3963 1.570803673205103",
-      "left_joint2": "1.5708 -1.5708 0",
-      "left_joint3": "1.5708 0 0",
-      "left_joint4": "0 -1.5708 3.141592653589793",
-      "left_joint5": "0 1.5708 0",
-      "left_joint6": "0 -1.5708 0",
-      "left_joint7": "0 1.5708 0"
-    },
-    "composition": "R_new_origin = R_old_origin * Rz(offset); FK_new(q) = FK_baseline(q + offset). XYZ, axes, limits and driver encoder offsets are unchanged.",
-    "physical_verification": "Pending comparison on the real arm; no hardware command sent."
-  }
+  "preservation": "Arm links, meshes, inertials, axes, limits, joints 2-7 and fixed tool frames copied directly from kaixu_arm. No STEP rebuild or edits from the previous junji_dual_7_6 output are used."
 }

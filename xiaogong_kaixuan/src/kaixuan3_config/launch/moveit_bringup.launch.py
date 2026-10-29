@@ -165,14 +165,16 @@ def generate_launch_description():
         "-9.17790101",
         "-0.02567102",
     ]
+    # Encoder offsets from the fixed physical pose in config/left_arm_calibration.json.
+    # q_deg = raw_output_deg - comp_deg (left direction is +1).
     _left_comp_defaults = [
-        "27.81089367",
-        "66.96535809",
-        "-69.58725823",
-        "-95.67538791",
-        "-84.25214484",
-        "79.74513970",
-        "-83.33515696",
+        "211.82688283",
+        "160.58685241",
+        "-69.66883257",
+        "-98.34962379",
+        "-87.44871777",
+        "53.70773232",
+        "-83.61559409",
     ]
     for i, default in enumerate(_comp_defaults):
         ld.add_action(DeclareLaunchArgument(f"comp{i}", default_value=default))

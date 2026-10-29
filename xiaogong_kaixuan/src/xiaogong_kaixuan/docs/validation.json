@@ -26,6 +26,12 @@
     "right_ee"
   ],
   "arm_internal_and_tool_joints_preserved": [
+    "left_joint2",
+    "left_joint3",
+    "left_joint4",
+    "left_joint5",
+    "left_joint6",
+    "left_joint7",
     "left_ee",
     "right_joint2",
     "right_joint3",
@@ -149,28 +155,6 @@
     "screenshots": [
       "preview_zero.png",
       "preview_bent.png"
-    ],
-    "scope": "Historical shoulder-adapted model before the 2026-10-29 left zero calibration."
-  },
-  "left_joint_origins_calibrated": {
-    "joint_order": [
-      "left_joint1",
-      "left_joint2",
-      "left_joint3",
-      "left_joint4",
-      "left_joint5",
-      "left_joint6",
-      "left_joint7"
-    ],
-    "offsets_deg": [
-      -180,
-      -180,
-      -7,
-      39,
-      180,
-      -17,
-      -6
-    ],
-    "reference": "source_manifest.json:left_zero_calibration"
+    ]
   }
 }

@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-29T06:41:33.711346+00:00",
+  "reference": "User confirmed the physical arm has remained in the screenshot pose. Encoder positions were read via SDO uploads only.",
+  "baseline_model_commit": "2d714d5",
+  "motor_counts_per_revolution": 1048576,
+  "formula": "q_rad = direction * (counts * 360 / (1048576 * gear_ratio) - comp_deg) * pi / 180; comp_new = raw_motor_output_deg - q_target_deg / direction",
+  "screenshot_precision": "RViz labels are rounded to integer degrees. Endpoints +/-180 deg are interpreted as the actual URDF limits +/-3.14 rad. Other target angles use the screenshot integer values.",
+  "sampling_max_drift_deg": 0.0,
+  "joints": [
+    {
+      "joint": "left_joint1",
+      "master": 1,
+      "slave": 0,
+      "encoder_counts": 9389799,
+      "gear_ratio": 101.0,
+      "direction": 1,
+      "old_comp_deg": 27.81089367,
+      "old_feedback_deg": 4.107241491447056,
+      "requested_screenshot_deg": -180,
+      "target_rad": -3.14,
+      "new_comp_deg": 211.82688283
+    },
+    {
+      "joint": "left_joint2",
+      "master": 1,
+      "slave": 1,
+      "encoder_counts": -5684189,
+      "gear_ratio": 101.0,
+      "direction": 1,
+      "old_comp_deg": 66.96535809,
+      "old_feedback_deg": -86.28725334944171,
+      "requested_screenshot_deg": -180,
+      "target_rad": -3.14,
+      "new_comp_deg": 160.58685241
+    },
+    {
+      "joint": "left_joint3",
+      "master": 1,
+      "slave": 2,
+      "encoder_counts": -18088447,
+      "gear_ratio": 81.0,
+      "direction": 1,
+      "old_comp_deg": -69.58725823,
+      "old_feedback_deg": -7.081574337003033,
+      "requested_screenshot_deg": -7,
+      "target_rad": -0.12217304763960307,
+      "new_comp_deg": -69.66883257
+    },
+    {
+      "joint": "left_joint4",
+      "master": 1,
+      "slave": 3,
+      "encoder_counts": -14002333,
+      "gear_ratio": 81.0,
+      "direction": 1,
+      "old_comp_deg": -95.67538791,
+      "old_feedback_deg": 36.32576412392144,
+      "requested_screenshot_deg": 39,
+      "target_rad": 0.6806784082777885,
+      "new_comp_deg": -98.34962379
+    },
+    {
+      "joint": "left_joint5",
+      "master": 1,
+      "slave": 4,
+      "encoder_counts": 27200245,
+      "gear_ratio": 101.0,
+      "direction": 1,
+      "old_comp_deg": -84.25214484,
+      "old_feedback_deg": 176.71217474420502,
+      "requested_screenshot_deg": 180,
+      "target_rad": 3.14,
+      "new_comp_deg": -87.44871777
+    },
+    {
+      "joint": "left_joint6",
+      "master": 1,
+      "slave": 5,
+      "encoder_counts": 10798821,
+      "gear_ratio": 101.0,
+      "direction": 1,
+      "old_comp_deg": 79.7451397,
+      "old_feedback_deg": -43.03740737662728,
+      "requested_screenshot_deg": -17,
+      "target_rad": -0.29670597283903605,
+      "new_comp_deg": 53.70773232
+    },
+    {
+      "joint": "left_joint7",
+      "master": 1,
+      "slave": 6,
+      "encoder_counts": -26363458,
+      "gear_ratio": 101.0,
+      "direction": 1,
+      "old_comp_deg": -83.33515696,
+      "old_feedback_deg": -6.280437129621362,
+      "requested_screenshot_deg": -6,
+      "target_rad": -0.10471975511965978,
+      "new_comp_deg": -83.61559409
+    }
+  ],
+  "validation": "Offline encoder-to-angle and angle-to-count checks, launch-argument propagation and URDF restoration verified; no real bringup or motion goal executed."
+}
