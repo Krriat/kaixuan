@@ -45,3 +45,8 @@ docs/validation.json：模型结构、源数据保留、网格路径与资源完
 docs/joints.csv：全部关节与安装参数。
 preview_zero.png / preview_bent.png：实际加载本 URDF 的预览截图。
 preview/vendor：预览库及其原许可证。
+
+2026-11-03 本地模型调整
+相对原始模型，left_joint1 沿自身 Z 轴累计调整 +180 度，left_joint2 累计调整 +190 度，left_joint5 调整 +180 度，right_joint2 调整 +10 度。调整写入关节 origin 的旋转，不修改关节 axis、限位或硬件编码器补偿。remote_xiaogong_kaixuan/model/robot.urdf 同步使用相同几何。
+
+零位轴线校正：以 world/base_link 为基准，left_joint2 为 -X 水平轴，left_joint3 为 -Z 竖直轴，left_joint4 为 -Y 水平轴，left_joint5 为 -Z 竖直轴，left_joint6 为 +Y 水平轴。已通过微小 origin 旋转校正原始角度小数近似导致的偏斜；报告见 docs/left_arm_axis_alignment.json。

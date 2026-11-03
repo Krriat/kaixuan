@@ -177,7 +177,7 @@ ros2 topic pub   /servo_demo_node/delta_twist_cmds   geometry_msgs/msg/TwistStam
   }"   --rate 100   --times 1000   --qos-profile sensor_data
 
 
-source /home/agxorin/cxl/kaixuan/install/setup.bash
+source /home/agxorin/cxl/kaixuan/xiaogong_kaixuan/install/setup.bash
 
 export ROS_DOMAIN_ID=26
 export ROS_LOCALHOST_ONLY=0
@@ -193,5 +193,5 @@ git add -A
 git commit -m "继续清理不再使用的文件"
 git push
 
-cd remote_rviz_client
+cd /home/ranger/code/junji/kaixuan/remote_xiaogong_kaixuan
 bash ./check_connection.sh --arm left

@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <robot name="kaixuan1">
-  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs and shoulder attachment transforms. -->
+  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs, shoulder attachment transforms, and requested left_joint1/left_joint2/left_joint5/right_joint2 zero-pose rotations and left_joint2 through left_joint6 zero-pose world-axis alignment. -->
   <link name="world" />
   <link name="base_link">
     <inertial>
@@ -191,42 +191,42 @@
     </inertial>
   </link>
   <joint name="left_joint1" type="revolute">
-    <origin xyz="0 0.20995 -0.049457" rpy="-5.551115123125783e-16 1.3963 1.570803673205103" />
+    <origin xyz="0 0.20995 -0.049457" rpy="0 -1.396300000000001 -1.570788980384691" />
     <parent link="base_link" />
     <child link="left_link1" />
     <axis xyz="0 0 1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint2" type="revolute">
-    <origin xyz="0 0 0.0727" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0 0 0.0727" rpy="1.57075465431388 1.39629999984693 -4.231507316454497e-05" />
     <parent link="left_link1" />
     <child link="left_link2" />
     <axis xyz="0 0 1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint3" type="revolute">
-    <origin xyz="0 -0.1386 -0.0055244" rpy="1.5708 0 0" />
+    <origin xyz="0 -0.1386 -0.0055244" rpy="1.570796326794897 0 0" />
     <parent link="left_link2" />
     <child link="left_link3" />
     <axis xyz="0 0 1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint4" type="revolute">
-    <origin xyz="0.00815 -0.003 0.19985" rpy="0 -1.5708 3.141592653589793" />
+    <origin xyz="0.00815 -0.003 0.19985" rpy="0 -1.570796326794896 3.141592653589793" />
     <parent link="left_link3" />
     <child link="left_link4" />
     <axis xyz="0 0 1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint5" type="revolute">
-    <origin xyz="0.15445 -0.005 -0.00815" rpy="0 1.5708 0" />
+    <origin xyz="0.15445 -0.005 -0.00815" rpy="0 -1.570796326794896 3.141592653589793" />
     <parent link="left_link4" />
     <child link="left_link5" />
     <axis xyz="0 0 1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint6" type="revolute">
-    <origin xyz="0 0 0.08405" rpy="0 -1.5708 0" />
+    <origin xyz="0 0 0.08405" rpy="0 -1.570796326794896 0" />
     <parent link="left_link5" />
     <child link="left_link6" />
     <axis xyz="0 0 1" />
@@ -414,7 +414,7 @@
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="right_joint2" type="revolute">
-    <origin xyz="0 0 0.0727" rpy="1.5708 1.5708 3.141592653589793" />
+    <origin xyz="0 0 0.0727" rpy="1.570796326717196 1.396267074800568 3.14158898030817" />
     <parent link="right_link1" />
     <child link="right_link2" />
     <axis xyz="0 0 1" />

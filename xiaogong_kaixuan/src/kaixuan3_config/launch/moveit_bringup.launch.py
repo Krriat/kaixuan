@@ -165,16 +165,17 @@ def generate_launch_description():
         "-9.17790101",
         "-0.02567102",
     ]
-    # Encoder offsets from the fixed physical pose in config/left_arm_calibration.json.
-    # q_deg = raw_output_deg - comp_deg (left direction is +1).
+    # 2026-11-03: current physical pose matches the edited URDF zero pose.
+    # Read-only encoder samples and observed drive status: config/left_arm_calibration.json.
+    # q_deg = raw_output_deg - comp_deg (left direction is +1); all seven targets are zero.
     _left_comp_defaults = [
-        "211.82688283",
-        "160.58685241",
-        "-69.66883257",
-        "-98.34962379",
-        "-87.44871777",
-        "53.70773232",
-        "-83.61559409",
+        "27.66017838",
+        "-23.88096989",
+        "-69.48424021",
+        "-91.14551544",
+        "94.56318430",
+        "23.35374511",
+        "-89.59847894",
     ]
     for i, default in enumerate(_comp_defaults):
         ld.add_action(DeclareLaunchArgument(f"comp{i}", default_value=default))
