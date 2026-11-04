@@ -27,6 +27,17 @@ controller_interface::CallbackReturn GravityController::on_init()
   auto_declare<std::string>("payload_frame", "left_ee");
   auto_declare<double>("payload_mass", 0.0);
   auto_declare<std::vector<double>>("payload_com", {0.0, 0.0, 0.0});
+  auto_declare<bool>("friction_enabled", false);
+  auto_declare<double>("friction_scale", 0.25);
+  auto_declare<double>("friction_velocity_deadband_rad_s", 0.003490658503988659);
+  auto_declare<double>("friction_velocity_full_rad_s", 0.008726646259971648);
+  auto_declare<double>("friction_filter_time_constant_s", 0.02);
+  auto_declare<std::vector<std::string>>("friction_models", {});
+  for (const auto * name : {"friction_coulomb_nm", "friction_viscous_nm_s_per_rad",
+      "friction_min_speed_rad_s", "friction_max_speed_rad_s", "friction_effort_limits_nm",
+      "friction_slew_nm_s", "friction_lookup_speeds_rad_s", "friction_lookup_torques_nm"})
+  {auto_declare<std::vector<double>>(name, {});}
+  auto_declare<std::vector<std::int64_t>>("friction_lookup_offsets", {});
   return controller_interface::CallbackReturn::SUCCESS;
 }
 controller_interface::InterfaceConfiguration GravityController::command_interface_configuration() const
@@ -80,12 +91,58 @@ controller_interface::CallbackReturn GravityController::on_configure(const rclcp
     }
     positions_.resize(state_joints_.size()); velocities_.resize(state_joints_.size());
     commands_.resize(joints_.size());
+    friction_.assign(joints_.size(), FrictionCompensation{});
+    friction_commands_.assign(joints_.size(), 0.0);
+    friction_enabled_ = node->get_parameter("friction_enabled").as_bool();
+    friction_scale_ = node->get_parameter("friction_scale").as_double();
+    friction_deadband_ = node->get_parameter("friction_velocity_deadband_rad_s").as_double();
+    friction_full_speed_ = node->get_parameter("friction_velocity_full_rad_s").as_double();
+    friction_filter_time_ = node->get_parameter("friction_filter_time_constant_s").as_double();
+    if (!std::isfinite(friction_scale_) || friction_scale_ < 0 || friction_scale_ > 1 ||
+      !std::isfinite(friction_deadband_) || friction_deadband_ < 0 ||
+      !std::isfinite(friction_full_speed_) || friction_full_speed_ <= friction_deadband_ ||
+      !std::isfinite(friction_filter_time_) || friction_filter_time_ < 0 || friction_filter_time_ > 1)
+    {throw std::invalid_argument("Invalid friction scale/deadband/filter settings");}
+    if (friction_enabled_) {
+      const auto models = node->get_parameter("friction_models").as_string_array();
+      const auto values = [&](const char * name) {
+          auto result = node->get_parameter(name).as_double_array();
+          if (result.size() != joints_.size()) {throw std::invalid_argument(std::string("Wrong size: ") + name);}
+          return result;
+        };
+      const auto fc = values("friction_coulomb_nm"), fv = values("friction_viscous_nm_s_per_rad");
+      const auto vmin = values("friction_min_speed_rad_s"), vmax = values("friction_max_speed_rad_s");
+      const auto caps = values("friction_effort_limits_nm"), slew = values("friction_slew_nm_s");
+      const auto speeds = node->get_parameter("friction_lookup_speeds_rad_s").as_double_array();
+      const auto torques = node->get_parameter("friction_lookup_torques_nm").as_double_array();
+      const auto offsets = node->get_parameter("friction_lookup_offsets").as_integer_array();
+      if (models.size() != joints_.size() || offsets.size() != joints_.size()+1 ||
+        speeds.size() != torques.size() || offsets.front() != 0 ||
+        offsets.back() != static_cast<std::int64_t>(speeds.size()))
+      {throw std::invalid_argument("Invalid friction models or lookup offsets");}
+      for (std::size_t i = 0; i < joints_.size(); ++i) {
+        if (offsets[i] < 0 || offsets[i+1] < offsets[i] ||
+          offsets[i+1] > static_cast<std::int64_t>(speeds.size()))
+        {throw std::invalid_argument("Invalid friction lookup span");}
+        auto & p = friction_[i].parameters;
+        p.model = models[i]; p.coulomb_nm = fc[i]; p.viscous_nm_s_per_rad = fv[i];
+        p.min_speed_rad_s = vmin[i]; p.max_speed_rad_s = vmax[i];
+        p.limit_nm = caps[i]; p.slew_nm_s = slew[i];
+        p.speeds.assign(speeds.begin()+offsets[i], speeds.begin()+offsets[i+1]);
+        p.torques.assign(torques.begin()+offsets[i], torques.begin()+offsets[i+1]);
+        p.validate(limits_[i]);
+      }
+    }
     gravity_publisher_ = std::make_unique<Publisher>(node->create_publisher<std_msgs::msg::Float64MultiArray>("~/gravity_torques", 1));
     command_publisher_ = std::make_unique<Publisher>(node->create_publisher<std_msgs::msg::Float64MultiArray>("~/commanded_torques", 1));
+    friction_publisher_ = std::make_unique<Publisher>(node->create_publisher<std_msgs::msg::Float64MultiArray>("~/friction_torques", 1));
     gravity_publisher_->msg_.data.resize(joints_.size());
     command_publisher_->msg_.data.resize(joints_.size());
+    friction_publisher_->msg_.data.resize(joints_.size());
     RCLCPP_INFO(node->get_logger(), "Pinocchio gravity compensation: %zu joints, scale=%.3f, zero=%.2fs, ramp=%.2fs",
       joints_.size(), scale_, zero_hold_, ramp_time_);
+    RCLCPP_INFO(node->get_logger(), "Friction compensation: enabled=%s, scale=%.3f, velocity deadband=%.3f deg/s",
+      friction_enabled_ ? "true" : "false", friction_scale_, friction_deadband_*180.0/3.141592653589793);
   } catch (const std::exception & e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Gravity controller configuration failed: %s", e.what());
     return controller_interface::CallbackReturn::ERROR;
@@ -115,6 +172,8 @@ controller_interface::CallbackReturn GravityController::on_activate(const rclcpp
       velocity_order_.push_back(find(state_interfaces_, name + "/velocity"));
     }
     invalidate();
+    for (auto & friction : friction_) {friction.reset();}
+    std::fill(friction_commands_.begin(), friction_commands_.end(), 0.0);
     activation_ns_ = previous_ns_ = now_ns(); published_ns_ = 0;
   } catch (const std::exception & e) {
     RCLCPP_ERROR(get_node()->get_logger(), "%s", e.what());
@@ -125,6 +184,8 @@ controller_interface::CallbackReturn GravityController::on_activate(const rclcpp
 controller_interface::CallbackReturn GravityController::on_deactivate(const rclcpp_lifecycle::State &)
 {
   invalidate();
+  for (auto & friction : friction_) {friction.reset();}
+  std::fill(friction_commands_.begin(), friction_commands_.end(), 0.0);
   return controller_interface::CallbackReturn::SUCCESS;
 }
 controller_interface::return_type GravityController::update(const rclcpp::Time &, const rclcpp::Duration &)
@@ -134,6 +195,7 @@ controller_interface::return_type GravityController::update(const rclcpp::Time &
     if (now < previous_ns_ || now - previous_ns_ > 50000000ULL) {
       throw std::runtime_error("Controller update gap exceeded 50 ms");
     }
+    const double dt = (now-previous_ns_) * 1e-9;
     previous_ns_ = now;
     for (std::size_t i = 0; i < positions_.size(); ++i) {
       positions_[i] = state_interfaces_[position_order_[i]].get_value();
@@ -149,10 +211,23 @@ controller_interface::return_type GravityController::update(const rclcpp::Time &
       if (!std::isfinite(demand) || std::abs(demand) > limits_[i]) {
         throw std::runtime_error("Required compensation exceeds configured effort limit");
       }
-      commands_[i] = elapsed < zero_hold_ ? 0.0 :
-        ramp * scale_ * gravity[model_order_[i]] - damping_[i] * velocities_[model_order_[i]];
-      if (std::abs(commands_[i]) > limits_[i]) {
+      const double base = ramp * scale_ * gravity[model_order_[i]] - damping_[i] * velocities_[model_order_[i]];
+      if (!std::isfinite(base) || std::abs(base) > limits_[i]) {
         throw std::runtime_error("Ramped compensation exceeds configured effort limit");
+      }
+      if (elapsed < zero_hold_) {
+        friction_[i].reset(); friction_commands_[i] = commands_[i] = 0.0;
+      } else {
+        const double requested = friction_enabled_ ? friction_[i].update(
+          velocities_[model_order_[i]], dt, ramp, friction_scale_,
+          friction_deadband_, friction_full_speed_, friction_filter_time_) : 0.0;
+        // Only trim optional friction assistance to available effort headroom;
+        // gravity/damping overflow still stops the entire controller as before.
+        const double lower = std::max(-limits_[i]-demand, -limits_[i]-base);
+        const double upper = std::min(limits_[i]-demand, limits_[i]-base);
+        friction_commands_[i] = std::clamp(requested, lower, upper);
+        friction_[i].track_applied(friction_commands_[i]);
+        commands_[i] = base + friction_commands_[i];
       }
     }
     for (std::size_t i = 0; i < joints_.size(); ++i) {
@@ -167,6 +242,10 @@ controller_interface::return_type GravityController::update(const rclcpp::Time &
       if (command_publisher_->trylock()) {
         for (std::size_t i = 0; i < joints_.size(); ++i) {command_publisher_->msg_.data[i] = commands_[i];}
         command_publisher_->unlockAndPublish();
+      }
+      if (friction_publisher_->trylock()) {
+        for (std::size_t i = 0; i < joints_.size(); ++i) {friction_publisher_->msg_.data[i] = friction_commands_[i];}
+        friction_publisher_->unlockAndPublish();
       }
     }
   } catch (const std::exception & e) {

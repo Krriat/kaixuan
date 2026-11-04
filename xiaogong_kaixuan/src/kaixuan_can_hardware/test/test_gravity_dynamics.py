@@ -53,6 +53,32 @@ def kdl_chain(robot, tip):
 
 
 class GravityDynamicsTests(unittest.TestCase):
+    def test_joint6_axis_reversal_preserves_gravity_coordinate_consistency(self):
+        robot = ET.parse(URDF).getroot()
+        self.assertEqual(robot.find("joint[@name='left_joint6']/axis").get("xyz"), "0 0 1")
+        corrected = pin.buildModelFromUrdf(str(URDF))
+        robot.find("joint[@name='left_joint6']/axis").set("xyz", "0 0 -1")
+        previous = pin.buildModelFromXML(ET.tostring(robot, encoding="unicode"))
+        new_data, old_data = corrected.createData(), previous.createData()
+        index = corrected.joints[corrected.getJointId("left_joint6")].idx_q
+        rng = np.random.default_rng(61104)
+        for angle in (0.0, 0.4, -0.4):
+            q = rng.uniform(-0.7, 0.7, corrected.nq)
+            q[index] = angle
+            old_q = q.copy()
+            old_q[index] *= -1
+            new_g = pin.computeGeneralizedGravity(corrected, new_data, q).copy()
+            old_g = pin.computeGeneralizedGravity(previous, old_data, old_q).copy()
+            old_g[index] *= -1
+            np.testing.assert_allclose(new_g, old_g, atol=1e-10)
+            pin.forwardKinematics(corrected, new_data, q)
+            pin.forwardKinematics(previous, old_data, old_q)
+            pin.updateFramePlacements(corrected, new_data)
+            pin.updateFramePlacements(previous, old_data)
+            new_tip = new_data.oMf[corrected.getFrameId("left_ee", pin.BODY)]
+            old_tip = old_data.oMf[previous.getFrameId("left_ee", pin.BODY)]
+            np.testing.assert_allclose(new_tip.homogeneous, old_tip.homogeneous, atol=1e-10)
+
     def test_real_urdf_gravity_and_potential_gradient(self):
         robot = ET.parse(URDF).getroot()
         model = pin.buildModelFromUrdf(str(URDF))

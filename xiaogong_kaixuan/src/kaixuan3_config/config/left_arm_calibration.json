@@ -1,8 +1,8 @@
 {
   "date": "2026-11-03T11:18:52.429563+08:00",
-  "reference": "Captured physical pose and axis directions are preserved. left_joint5 compensation is represented one output revolution higher (+360 degrees), so its original +pi reference is now -pi. Feedback for this joint is normalized to [-pi, pi); position commands preserve the nearest encoder turn.",
+  "reference": "Encoder reference positions are preserved. left_joint5 uses the normalized -pi reference. left_joint6 now has URDF local axis +Z; its hardware direction remains +1 and its encoder compensation is unchanged.",
   "model_path": "src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
-  "model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12",
+  "model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d",
   "repository_commit": "d765ecc8059def31aa19c9b26200866a2e732386",
   "model_has_uncommitted_edits": true,
   "previous_calibration_date": "2026-10-29T06:41:33.711346+00:00",
@@ -224,7 +224,7 @@
     "max_reference_residual_rad": 7.033601509481115e-11,
     "model_axes_match_remote": true
   },
-  "configuration_updated_at": "2026-11-03T20:42:14.099362+08:00",
+  "configuration_updated_at": "2026-11-04T14:20:36.554222+08:00",
   "mapping_adjustments": [
     {
       "joint": "left_joint2",
@@ -236,9 +236,10 @@
     {
       "joint": "left_joint6",
       "parameter": "URDF axis",
-      "old_value": "0 0 1",
-      "new_value": "0 0 -1",
-      "hardware_direction": 1
+      "old_value": "0 0 -1",
+      "new_value": "0 0 1",
+      "hardware_direction": 1,
+      "date": "2026-11-04T14:20:36.554222+08:00"
     },
     {
       "joint": "left_joint5",
@@ -274,5 +275,18 @@
     "displacement_guard": "Uses continuous encoder angle across the +/-pi boundary.",
     "previous_model_sha256": "b384b64c823fb3342b1a4314ab2a4775fdf712a1a2681089db3079d2c0fdab1c",
     "model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12"
+  },
+  "joint6_axis_update": {
+    "date": "2026-11-04T14:20:36.554222+08:00",
+    "joint": "left_joint6",
+    "previous_local_axis": "0 0 -1",
+    "local_axis": "0 0 1",
+    "hardware_direction": 1,
+    "encoder_offset_deg": 23.35374511,
+    "previous_model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12",
+    "model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d",
+    "zero_pose_geometry_changed": false,
+    "gravity_update": "Rebuild Pinocchio model from the corrected URDF; recompute all joint gravity torques. Keep positive damping and avoid an additional hardware sign reversal.",
+    "physical_motion_tested": false
   }
 }

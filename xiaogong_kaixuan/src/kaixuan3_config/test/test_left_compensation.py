@@ -146,15 +146,15 @@ class LeftCompensationTests(unittest.TestCase):
                 hardware = {p.get("name"): p.text for p in robot.findall("./ros2_control/hardware/param")}
                 self.assertEqual(hardware["dc_clock_mode"], mode)
 
-    def test_both_urdfs_reverse_joint_axes_without_double_reversing_hardware(self):
+    def test_both_urdfs_have_corrected_axes_without_double_reversing_hardware(self):
         workspace = ROOT.parents[1]
         model = ET.parse(workspace / self.record["model_path"]).getroot()
         remote = ET.parse(workspace.parent / "remote_xiaogong_kaixuan/model/robot.urdf").getroot()
         parameters = self.hardware_parameters()
-        for name, number in [("left_joint2", 2), ("left_joint6", 6)]:
+        for name, number, expected in [("left_joint2", 2, "0 0 -1"), ("left_joint6", 6, "0 0 1")]:
             with self.subTest(joint=name):
-                self.assertEqual(model.find(f"joint[@name='{name}']/axis").get("xyz"), "0 0 -1")
-                self.assertEqual(remote.find(f"joint[@name='{name}']/axis").get("xyz"), "0 0 -1")
+                self.assertEqual(model.find(f"joint[@name='{name}']/axis").get("xyz"), expected)
+                self.assertEqual(remote.find(f"joint[@name='{name}']/axis").get("xyz"), expected)
                 self.assertEqual(int(parameters[f"left_direction{number}"]), 1)
         remote.set("name", model.get("name"))
         canonical = lambda element: ET.canonicalize(ET.tostring(element, encoding="unicode"), strip_text=True)

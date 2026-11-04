@@ -62,6 +62,41 @@ int main(int argc, char ** argv)
   std::this_thread::sleep_for(60ms);
   check(update() == controller_interface::return_type::ERROR && std::isnan(a) && std::isnan(b), "update watchdog stops every joint");
   controller.on_deactivate(state); controller.release_interfaces();
+  va = .1; vb = .2;
+  node->set_parameters({rclcpp::Parameter("friction_enabled", true),
+    rclcpp::Parameter("friction_scale", .25),
+    rclcpp::Parameter("friction_velocity_deadband_rad_s", .01),
+    rclcpp::Parameter("friction_velocity_full_rad_s", .02),
+    rclcpp::Parameter("friction_filter_time_constant_s", 0.0),
+    rclcpp::Parameter("friction_models", std::vector<std::string>{"coulomb_viscous", "coulomb_viscous"}),
+    rclcpp::Parameter("friction_coulomb_nm", std::vector<double>{.2, .4}),
+    rclcpp::Parameter("friction_viscous_nm_s_per_rad", std::vector<double>{0, 0}),
+    rclcpp::Parameter("friction_min_speed_rad_s", std::vector<double>{.02, .02}),
+    rclcpp::Parameter("friction_max_speed_rad_s", std::vector<double>{.05, .05}),
+    rclcpp::Parameter("friction_effort_limits_nm", std::vector<double>{.1, .2}),
+    rclcpp::Parameter("friction_slew_nm_s", std::vector<double>{10, 10}),
+    rclcpp::Parameter("friction_lookup_offsets", std::vector<std::int64_t>{0, 0, 0}),
+    rclcpp::Parameter("effort_limits", std::vector<double>{10, 4.95})});
+  check(controller.on_configure(state) == controller_interface::CallbackReturn::SUCCESS, "configure friction");
+  std::vector<hardware_interface::LoanedCommandInterface> fc;
+  fc.emplace_back(ca); fc.emplace_back(cb);
+  std::vector<hardware_interface::LoanedStateInterface> fs;
+  fs.emplace_back(svb); fs.emplace_back(sa); fs.emplace_back(sb); fs.emplace_back(sva);
+  controller.assign_interfaces(std::move(fc), std::move(fs));
+  check(controller.on_activate(state) == controller_interface::CallbackReturn::SUCCESS, "activate friction");
+  check(update() == controller_interface::return_type::OK && a == 0 && b == 0, "friction cannot defeat zero preparation");
+  end = std::chrono::steady_clock::now() + 1300ms;
+  while (std::chrono::steady_clock::now() < end) {check(update() == controller_interface::return_type::OK, "friction startup"); std::this_thread::sleep_for(5ms);}
+  check(std::abs(a - (-.5*9.80665-.3*va+.1)) < 1e-8 &&
+    std::abs(b - (-.5*.2*9.80665-.4*vb+.05)) < 1e-8, "friction follows selected joint names despite scrambled interface order");
+  va = -.1;
+  check(update() == controller_interface::return_type::OK, "reverse friction update");
+  end = std::chrono::steady_clock::now() + 150ms;
+  while (std::chrono::steady_clock::now() < end) {check(update() == controller_interface::return_type::OK, "effort headroom"); std::this_thread::sleep_for(5ms);}
+  check(std::abs(a+4.95) < 1e-8, "optional friction is capped to headroom without dropping gravity or stopping controller");
+  va = 0;
+  check(update() == controller_interface::return_type::OK && std::abs(a+.5*9.80665) < 1e-8, "friction vanishes immediately when stopped");
+  controller.on_deactivate(state); controller.release_interfaces();
   rclcpp::shutdown();
   std::cout << "Gravity controller mapping, zero startup, ramp, damping and fault checks passed\n";
 }

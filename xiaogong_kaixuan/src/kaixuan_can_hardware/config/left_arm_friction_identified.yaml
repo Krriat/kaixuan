@@ -1,0 +1,185 @@
+schema_version: 1
+purpose: Identification data loaded by gravity_compensation launch when enabled.
+  Runtime gains and limits are configured in gravity_compensation.yaml.
+identified_at: '2026-11-04T17:39:51.728557+08:00'
+artifact_directory: /home/agxorin/ec_generic/logs/left-arm-friction-id-20261104T085302Z
+model_sha256: 12def6115bfe9a069710cabcdac0287641888aa8ed82b9a407495a67afa75040
+units:
+  torque: nominal output-equivalent N.m inferred from motor current
+  velocity: rad/s
+method: Paired opposite directions at matched positions; subtract Pinocchio RNEA(q,v,0);
+  omit acceleration/transients; fit nonnegative Fc+b*abs(v); independent held-out
+  speed.
+reference_pose_rad:
+  left_joint1: -0.272243797962923
+  left_joint2: 0.08054194133179639
+  left_joint3: -0.005318480720618009
+  left_joint4: 0.21729693027710223
+  left_joint5: -0.2294797525501422
+  left_joint6: -0.07751550919187017
+  left_joint7: -0.00025481310677515133
+validity:
+  local_reference_pose_only: true
+  other_joints_held_fixed_during_each_test: true
+  matched_position_window_rad:
+  - -0.013962634015954637
+  - 0.013962634015954637
+  external_torque_calibrated: false
+  passive_output_backdrive_identified: false
+  right_arm_excluded: true
+  extrapolation_outside_identified_speed_range_validated: false
+joints:
+  left_joint1:
+    model: velocity_lookup
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.06981317007977318
+    coulomb_viscous_candidate:
+      coulomb_nm: 3.5360459425981694
+      viscous_nm_s_per_rad: 8.144562727081697e-11
+      positive_viscous_coefficient_resolved: false
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008744568225789407
+      friction_nm: 4.180833237032462
+    - speed_rad_s: 0.017390776182512304
+      friction_nm: 3.4795850963142874
+    - speed_rad_s: 0.03500857834456257
+      friction_nm: 3.36052076854006
+    - speed_rad_s: 0.07029436824421437
+      friction_nm: 3.3578757287028833
+    validation_rmse_nm: 0.22694420511176605
+    velocity_ripple_requires_caution: true
+    quality_issues: []
+  left_joint2:
+    model: coulomb_viscous
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.03490658503988659
+    coulomb_viscous_candidate:
+      coulomb_nm: 1.7858516147664405
+      viscous_nm_s_per_rad: 13.909948080164785
+      positive_viscous_coefficient_resolved: true
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008568941710882409
+      friction_nm: 1.905349103577981
+    - speed_rad_s: 0.017446791619086757
+      friction_nm: 2.0321624752310927
+    - speed_rad_s: 0.026336373332452083
+      friction_nm: 2.1428036860671256
+    - speed_rad_s: 0.0351533636386761
+      friction_nm: 2.275746962877051
+    validation_rmse_nm: 0.05001471876032914
+    velocity_ripple_requires_caution: false
+    quality_issues: []
+  left_joint3:
+    model: coulomb_viscous
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.03490658503988659
+    coulomb_viscous_candidate:
+      coulomb_nm: 2.040074452240792
+      viscous_nm_s_per_rad: 1.8950755479193147e-16
+      positive_viscous_coefficient_resolved: false
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008676619224363004
+      friction_nm: 2.2470012006176523
+    - speed_rad_s: 0.0172183519390932
+      friction_nm: 2.0395697863031965
+    - speed_rad_s: 0.025888526351060714
+      friction_nm: 1.982513471707524
+    - speed_rad_s: 0.03455077392597475
+      friction_nm: 1.9658962342565913
+    validation_rmse_nm: 0.15312400555886982
+    velocity_ripple_requires_caution: false
+    quality_issues: []
+  left_joint4:
+    model: velocity_lookup
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.026179938779914945
+    coulomb_viscous_candidate:
+      coulomb_nm: 2.5766435256719045
+      viscous_nm_s_per_rad: 1.5905834558260692e-15
+      positive_viscous_coefficient_resolved: false
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008847882717996577
+      friction_nm: 2.756687505310484
+    - speed_rad_s: 0.012919784427723152
+      friction_nm: 2.6503890565216786
+    - speed_rad_s: 0.017321707786330735
+      friction_nm: 2.5705532019228916
+    - speed_rad_s: 0.026234514319608784
+      friction_nm: 2.4159211668773466
+    validation_rmse_nm: 0.3201992310612237
+    velocity_ripple_requires_caution: true
+    quality_issues: []
+  left_joint5:
+    model: coulomb_viscous
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.026179938779914945
+    coulomb_viscous_candidate:
+      coulomb_nm: 0.08677620753286519
+      viscous_nm_s_per_rad: 1.150835335331275
+      positive_viscous_coefficient_resolved: true
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008837388272492211
+      friction_nm: 0.094005778698902
+    - speed_rad_s: 0.013286462985733619
+      friction_nm: 0.10276822731696758
+    - speed_rad_s: 0.0176707296648039
+      friction_nm: 0.11073757996329787
+    - speed_rad_s: 0.026487543142358228
+      friction_nm: 0.11621528702810335
+    validation_rmse_nm: 0.0012565849552156666
+    velocity_ripple_requires_caution: false
+    quality_issues: []
+  left_joint6:
+    model: coulomb_viscous
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.026179938779914945
+    coulomb_viscous_candidate:
+      coulomb_nm: 0.11724884820741577
+      viscous_nm_s_per_rad: 0.1448669562256763
+      positive_viscous_coefficient_resolved: true
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008787037736200447
+      friction_nm: 0.12329047361816675
+    - speed_rad_s: 0.013174493495936752
+      friction_nm: 0.11527127977927112
+    - speed_rad_s: 0.017585321514539707
+      friction_nm: 0.12124762024871326
+    - speed_rad_s: 0.02636541831403968
+      friction_nm: 0.12184448628945135
+    validation_rmse_nm: 0.005154697541297691
+    velocity_ripple_requires_caution: false
+    quality_issues: []
+  left_joint7:
+    model: coulomb_viscous
+    accepted_local_model: true
+    speed_range_rad_s:
+    - 0.008726646259971648
+    - 0.026179938779914945
+    coulomb_viscous_candidate:
+      coulomb_nm: 0.0895250005214846
+      viscous_nm_s_per_rad: 1.0500024189369186
+      positive_viscous_coefficient_resolved: true
+    odd_friction_velocity_knots:
+    - speed_rad_s: 0.008823963263458336
+      friction_nm: 0.09941773942724622
+    - speed_rad_s: 0.013249575939355482
+      friction_nm: 0.10356977738238524
+    - speed_rad_s: 0.017662245995893208
+      friction_nm: 0.10603931599269553
+    - speed_rad_s: 0.02635091790075972
+      friction_nm: 0.1177626026907092
+    validation_rmse_nm: 0.0040355920315682785
+    velocity_ripple_requires_caution: false
+    quality_issues: []

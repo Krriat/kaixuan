@@ -321,7 +321,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
       p.command_units_per_nm = parameter("torque_command_units_per_nm", 1000.0 / p.rated_nm);
       p.limit_nm = parameter("effort_limit_nm", 0.05 * p.rated_nm);
       p.slew_nm_s = parameter("effort_slew_nm_s", 0.5 * p.rated_nm);
-      p.max_velocity_rad_s = parameter("max_velocity_rad_s", degrees_to_radians(45.0));
+      p.max_velocity_rad_s = parameter("max_velocity_rad_s", degrees_to_radians(90.0));
       p.max_displacement_rad = parameter("max_displacement_rad", degrees_to_radians(120.0));
       p.min_position_rad = parameter("min_position_rad", -3.14);
       p.max_position_rad = parameter("max_position_rad", 3.14);

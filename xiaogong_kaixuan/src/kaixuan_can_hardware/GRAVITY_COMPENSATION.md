@@ -11,15 +11,23 @@
 当前 URDF 的 world 到 base_link 无旋转；实体安装与模型一致时，该向量也适用于基座。
 控制器按 URDF 关节名称映射位置和速度，不依赖消息或接口的排列顺序。
 
+2026-11-04 第 6 轴方向修正：`left_joint6` 的局部轴从 `0 0 -1` 改为 `0 0 1`。
+本地和 remote 模型同步，编码器偏置及硬件方向系数 +1 沿用现有标定，避免重复反向。
+启动时传入的 `robot_description` 包含新轴向，Pinocchio 会据此重新计算整条左臂的重力项，
+而不是在旧模型输出上仅将第 6 轴力矩取负。阻尼系数继续为正，`left_joint6=0.2 N·m/(rad/s)`。
+修改前已启动的控制器需要退出 launch 后重新启动才能加载新模型。
+
 Pinocchio 使用 URDF 的关节变换、轴线、质量和质心计算：
 
 ```text
 g(q) = computeGeneralizedGravity(model, data, q)
-tau_command = ramp * gravity_scale * g(q) - B * dq
+tau_base = ramp * gravity_scale * g(q) - B * dq
+tau_command = tau_base + tau_friction
 ```
 
 动力学约定是 `M*ddq + C + g(q) = tau`，因此补偿直接使用 `+g(q)`。
 `B*dq` 提供速度阻尼；控制器没有位置弹簧，目标是抵消模型重力，而非保持固定角度。
+`tau_friction` 使用已辨识的七轴模型，沿实际运动方向提供有界的部分摩擦补偿。
 减速比和电机符号由硬件接口处理，控制器不再重复乘减速比。
 
 前 0.5 秒只输出零力矩，供硬件完成 `6 → 7 → 15`；随后默认用 5 秒增加到目标补偿比例。
@@ -53,6 +61,11 @@ ros2 launch kaixuan3_config gravity_compensation.launch.py
 ros2 launch kaixuan3_config gravity_compensation.launch.py use_mock_hardware:=false
 ```
 
+该实体启动命令读取 URDF、标定和保护配置，启动 controller_manager 与状态发布，
+建立左臂 EtherCAT OP/PDO 通信并选择 CST（模式 10）。
+joint_state_broadcaster 为 active，重力控制器完成 Pinocchio 模型配置后保持 inactive；
+左臂目标力矩为零、控制字为 6，尚未走关节驱动使能。
+
 启动后从另一终端激活：
 
 ```bash
@@ -61,7 +74,10 @@ source /home/agxorin/cxl/kaixuan/xiaogong_kaixuan/install/setup.bash
 ros2 control switch_controllers --activate gravity_compensation_controller
 ```
 
-**激活会自动发送新零命令、释放刹车并逐渐施加重力补偿。**
+**激活会自动发送新零命令、使能驱动并逐渐施加重力补偿。**
+该切换请求将重力控制器从 inactive 变为 active，占用左臂七轴 effort 接口并复位相关硬件保护锁存。
+控制器先持续输出 0.5 秒零力矩；通信和模式检查通过后，硬件按状态字走 `6 → 7 → 15` 使能。
+随后用 5 秒将重力项从零增加至目标比例；1 kHz 更新中持续按实时姿态计算 `g(q)`，叠加速度阻尼和摩擦补偿。
 当前启动流程按下垂姿态验证；若启动时手臂已抬起，零力矩和缓升阶段的补偿尚未建立，
 应支撑手臂直至补偿建立。此入口尚未实现从位置保持向重力补偿的带载无缝切换。
 无需向 `/torque_controller/commands` 发布消息；重力控制器直接占用 effort 接口。
@@ -75,6 +91,9 @@ ros2 control switch_controllers --deactivate gravity_compensation_controller
 
 退出 launch 也会停用并释放主站。硬件保护锁存后，先停用整个重力控制器，再激活，
 才能重新经过零力矩准备和缓升。仅恢复正常状态不会自行重新使能。
+停用写入零目标力矩和 CW6，并不证明机械抱闸已经锁住负载。
+2026-11-04 实测第 2 轴在 CW6、零目标力矩下仍移动；第 1、2 轴是否装有机械抱闸尚待核对型号。
+在实物制动器及其接线、动作未经确认前，带载停用和故障撤力均需可靠的外部支撑。
 
 初次核验可在启动时设置较小比例，例如 `gravity_scale:=0.25`；默认 `1.0`。
 参数在控制器配置时读取，修改后需要重新启动 launch。默认关节是 left_joint1..7，
@@ -85,6 +104,9 @@ ros2 control switch_controllers --deactivate gravity_compensation_controller
 
 - `gravity_config_file`：重力向量、各关节阻尼和零力矩准备时间，默认 `config/gravity_compensation.yaml`。
 - `gravity_ramp_time`：缓升秒数，默认 5，允许 1–60 秒。
+- `friction_enabled`：可覆盖 YAML 开关，`false` 关闭摩擦补偿。
+- `friction_scale`：可覆盖 YAML 比例，范围 0–1；默认 0.25，0 无补偿、1 为完整辨识幅值，仍受补偿限幅和整体力矩余量约束。
+- `friction_parameter_file`：可覆盖辨识结果文件，默认由重力 YAML 指向同目录的 `left_arm_friction_identified.yaml`。
 - `torque_config_file`：硬件限幅和保护，重力入口默认 `config/gravity_limits.yaml`。
 - `payload_mass`：URDF 之外附加的工具/工件质量，kg，默认 0，避免与模型质量重复计算。
 - `payload_frame`：负载参考连杆坐标系，填 URDF 连杆名，默认 left_ee。
@@ -98,7 +120,8 @@ ros2 launch kaixuan3_config gravity_compensation.launch.py use_mock_hardware:=fa
 ```
 
 重力入口默认力矩上限为额定输出力矩的 20%，变化率为额定值的 10%/秒；
-速度上限为 45°/秒（0.7853981633974483 rad/s），相对使能位置的位移范围为每轴 120°，另有模型绝对位置保护。
+速度保护阈值为 90°/秒（1.5707963267948966 rad/s），相对使能位置的位移范围为每轴 120°，另有模型绝对位置保护。
+这是超速停用阈值：速度绝对值超过 90°/秒时锁存停用，不会主动把拖动速度控制在 90°/秒。
 120° 是相对本次准备位置的范围，部分关节可能先达到 URDF 绝对位置限位。
 与普通 CST 入口一样，可在启动时通过 `max_velocity_rad_s`、`max_displacement_deg`
 显式覆盖拖动速度和相对位移上限。未指定时仍使用 YAML 的限值；修改后需重启 launch。
@@ -120,10 +143,12 @@ ros2 launch kaixuan3_config gravity_compensation.launch.py use_mock_hardware:=fa
 ```bash
 ros2 topic echo /gravity_compensation_controller/gravity_torques
 ros2 topic echo /gravity_compensation_controller/commanded_torques
+ros2 topic echo /gravity_compensation_controller/friction_torques
 ```
 
-两者均为 Float64MultiArray，按 `joints` 顺序排列，20 Hz 发布。
-前者是未乘比例的 Pinocchio `g(q)`，后者是缓升、比例和阻尼计算后的指令。
+三者均为 Float64MultiArray，按 `joints` 顺序排列，20 Hz 发布。
+分别为未乘比例的 Pinocchio `g(q)`、完整控制指令、以及计入控制指令的摩擦补偿分量。
+它们位于硬件保护及力矩变化率处理之前；摩擦分量非零不能单独证明驱动正在出力。
 实际下发的限速后力矩、原始目标、使能状态和保护码以 `/kaixuan/hardware_diagnostics` 为准。
 
 URDF 几何对齐不等于质量、质心和电机力矩常数已经标定。
@@ -132,7 +157,33 @@ mock 仅用于模型计算和控制器生命周期联调，不模拟重力下的
 
 第 3、5 轴若在当前姿态下的重力项很小，单纯重力补偿不会明显减轻水平转动的阻力。
 应先确认电机使能且刹车已释放，再区分传动摩擦、刹车拖滞和速度阻尼。
-本控制器没有摩擦辨识或摩擦前馈；不能通过放大重力系数来代替它们。
+本控制器已接入有界摩擦前馈；重力比例和摩擦比例分别配置。
+
+2026-11-04 已完成左臂七轴的外部 CSP 局部低速摩擦辨识，结果保存在
+[`config/left_arm_friction_identified.yaml`](config/left_arm_friction_identified.yaml)。
+它包含正反向匹配、扣除模型动力学后的有效阻力曲线和独立速度验证误差；
+只覆盖文件内记录的参考姿态及低速范围，N·m 沿用额定参数换算，不能直接当作输出端手推反驱力矩。
+启动时按关节名称加载该文件，第 1、4 轴采用速度查表，其余左臂轴采用库仑＋黏性候选模型。
+默认 `friction_scale=0.25` 是初次试运行增益，并非辨识参数或已验证的最优比例。
+速度在 0.2°/秒以内时摩擦补偿为零，0.2～0.5°/秒平滑过渡；默认速度滤波时间常数 20 ms。
+模型速度封顶到各轴辨识上限，不把低速黏性系数外推到 90°/秒；另有每轴摩擦力矩和变化率限制。
+停止或换向时立即撤去原方向助力；重新激活后清空状态，并沿用零命令准备及 5 秒启动缓升。
+总力矩余量不足时只削减可选摩擦助力；原有重力/阻尼本身越限仍按原逻辑停用。
+这项补偿不在静止时猜测手推方向，也不施加固定起动脉冲，起步仍需要外力。
+运动摩擦阻力与速度反向，补偿与速度同向；上抬和下放均适用。
+目前没有“重力势能下降就关闭助力”的规则：势能下降无法区分主动向下拖动与自行下滑。
+补偿力矩沿速度做正功本身不是过补偿的证据，因为真实传动摩擦同时耗散能量。
+只有在真实摩擦被准确抵消、重力力矩与力矩换算也准确时，完整补偿才不会留下额外驱动力。
+局部 CSP 辨识并未证明全姿态手推反驱下也能使用 100% 幅值。
+原始数据、拟合和曲线见 `/home/agxorin/ec_generic/logs/left-arm-friction-id-20261104T085302Z/`。
+
+2026-11-04 用户以 `friction_scale:=1` 运行时，第 1 轴出现约 64.6° 的运动，峰值速度约 21.3°/秒。
+主要下滑段驱动保持 CW15、CST，保护码为零；不能将这次下滑归因为保护撤力。
+一个同步样本为重力模型 -4.653 N·m、摩擦前馈 +3.358 N·m、阻尼约 -0.608 N·m，合成指令 -1.903 N·m。
+此记录说明控制器持续施加速度同向补偿，但尚不能区分重力欠补偿、摩擦过补偿和力矩换算误差。
+此前提出的“下降撤助力并锁存”只是临时抑制思路，未部署，已撤回；不是本次问题的已验证修复。
+控制器已停用，未再执行实机运动。原始记录位于
+`/home/agxorin/ec_generic/logs/gravity-sag-diagnosis-20261104T104156Z/`。
 
 ## 2026-11-04 验证记录
 

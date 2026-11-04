@@ -194,4 +194,28 @@ git commit -m "继续清理不再使用的文件"
 git push
 
 cd /home/ranger/code/junji/kaixuan/remote_xiaogong_kaixuan
+export ROS_DOMAIN_ID=26
+export ROS_LOCALHOST_ONLY=0
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 bash ./check_connection.sh --arm left
+
+① 已使能、零力矩
+
+终端 A 启动：
+ros2 launch kaixuan3_config torque_control.launch.py \
+  use_mock_hardware:=false \
+  joints:=left_joint1,left_joint2,left_joint3,left_joint4,left_joint5,left_joint6,left_joint7
+终端 B 持续发送零力矩，随后电机使能、松刹车：
+ros2 topic pub -r 50 /torque_controller/commands \
+  std_msgs/msg/Float64MultiArray \
+  '{data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}'
+
+② 已使能、重力补偿
+cd xiaogong_kaixuan
+source install/setup.bash
+ros2 launch kaixuan3_config gravity_compensation.launch.py use_mock_hardware:=false
+ros2 launch kaixuan3_config gravity_compensation.launch.py use_mock_hardware:=false friction_scale:=0.25
+
+cd xiaogong_kaixuan
+source install/setup.bash
+ros2 control switch_controllers --activate gravity_compensation_controller

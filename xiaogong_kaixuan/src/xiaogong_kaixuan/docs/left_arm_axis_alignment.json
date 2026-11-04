@@ -1,7 +1,7 @@
 {
   "date": "2026-11-03",
   "scope": "URDF zero pose, relative to world/base_link X-forward Y-left Z-up; joints 2 through 6 only",
-  "method": "Snap each current zero-pose world joint frame to its nearest proper cardinal rotation; express the correction in the joint origin while retaining all joint translations and local axes. Later user-requested local-axis sign reversals for left_joint2 and left_joint6 preserve the horizontal/vertical alignment.",
+  "method": "Snap each current zero-pose world joint frame to its nearest proper cardinal rotation; express the correction in the joint origin while retaining all joint translations and local axes. Later user-requested local-axis sign reversals for left_joint2 and left_joint6 preserve the horizontal/vertical alignment. On 2026-11-04 left_joint6 was corrected back to local +Z; its zero-pose world axis is +Y. Joint origins and horizontal/vertical alignment remain unchanged.",
   "tolerance_deg": 1e-10,
   "joints": {
     "left_joint2": {
@@ -206,9 +206,9 @@
         ]
       ],
       "target_world_axis_xyz": [
-        -0.0,
-        -1.0,
-        -0.0
+        0.0,
+        1.0,
+        0.0
       ],
       "before": {
         "axis_world_xyz": [
@@ -221,13 +221,14 @@
       },
       "after": {
         "axis_world_xyz": [
-          1.6640991282376724e-16,
-          -1.0,
-          5.232486138000088e-17
+          -1.6640991282376724e-16,
+          1.0,
+          -5.232486138000088e-17
         ],
         "orientation": "horizontal",
         "tilt_error_deg": 2.9979937206811267e-15
-      }
+      },
+      "axis_sign_corrected_at": "2026-11-04T14:20:36.554222+08:00"
     }
   },
   "physical_motion_performed": false,
@@ -235,21 +236,37 @@
   "max_after_tilt_error_deg": 8.5346900063828e-14,
   "status": "PASS",
   "local_axis_direction_corrections": {
-    "date": "2026-11-03",
+    "date": "2026-11-04",
     "joints": {
       "left_joint2": {
         "previous_local_axis": "0 0 1",
         "local_axis": "0 0 -1",
-        "hardware_direction": 1
+        "hardware_direction": 1,
+        "date": "2026-11-03"
       },
       "left_joint6": {
-        "previous_local_axis": "0 0 1",
-        "local_axis": "0 0 -1",
+        "date": "2026-11-04",
+        "previous_local_axis": "0 0 -1",
+        "local_axis": "0 0 1",
         "hardware_direction": 1
       }
     },
-    "reason": "User requested reversed rotation directions in the workspace and remote URDFs. Reversal is applied once in the URDF axes; hardware direction remains +1.",
+    "reason": "Current model axes: left_joint2 remains -Z; left_joint6 corrected from -Z to +Z at user request. Apply the correction once in URDF; hardware direction remains +1.",
     "zero_pose_geometry_changed": false,
+    "physical_motion_tested": false,
+    "model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d"
+  },
+  "joint6_axis_update": {
+    "date": "2026-11-04T14:20:36.554222+08:00",
+    "joint": "left_joint6",
+    "previous_local_axis": "0 0 -1",
+    "local_axis": "0 0 1",
+    "hardware_direction": 1,
+    "encoder_offset_deg": 23.35374511,
+    "previous_model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12",
+    "model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d",
+    "zero_pose_geometry_changed": false,
+    "gravity_update": "Rebuild Pinocchio model from the corrected URDF; recompute all joint gravity torques. Keep positive damping and avoid an additional hardware sign reversal.",
     "physical_motion_tested": false
   }
 }

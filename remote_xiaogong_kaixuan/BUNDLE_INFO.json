@@ -3,9 +3,9 @@
   "default_arm": "left",
   "default_domain": 26,
   "source_model": "xiaogong_kaixuan/src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
-  "source_model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12",
+  "source_model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d",
   "source_srdf_sha256": "0a3176062f9a9ec0740917edf33cf3cbe7022cc5aa15eba1ad525bd458648b87",
-  "validation": "URDF origin rotations updated on 2026-11-03 relative to the original model: left_joint1 +180 degrees, left_joint2 +190 degrees, left_joint5 +180 degrees, right_joint2 +10 degrees about their respective joint-local Z axes. Remote and workspace geometry are synchronized. Earlier mock-controller checks precede this geometry update. No motor enable or physical motion was performed. Zero-pose left_joint2 through left_joint6 world axes are now aligned to their nearest horizontal/vertical cardinal directions; maximum prior tilt was 0.002517852 degrees. User-requested left_joint2/left_joint6 axis reversals are synchronized in both URDFs; hardware signs stay +1 to avoid double reversal.",
+  "validation": "URDF origin rotations updated on 2026-11-03 relative to the original model: left_joint1 +180 degrees, left_joint2 +190 degrees, left_joint5 +180 degrees, right_joint2 +10 degrees about their respective joint-local Z axes. Remote and workspace geometry are synchronized. Earlier mock-controller checks precede this geometry update. No motor enable or physical motion was performed. Zero-pose left_joint2 through left_joint6 world axes are now aligned to their nearest horizontal/vertical cardinal directions; maximum prior tilt was 0.002517852 degrees. User-requested left_joint2/left_joint6 axis reversals are synchronized in both URDFs; hardware signs stay +1 to avoid double reversal. On 2026-11-04 left_joint6 was corrected from local -Z back to +Z; the gravity model uses the corrected axis and hardware direction remains +1.",
   "python_motion_client": {
     "entry": "move_arm.sh",
     "api": "scripts/motion_client.py:ArmClient",
@@ -34,22 +34,25 @@
     "report": "xiaogong_kaixuan/src/xiaogong_kaixuan/docs/left_arm_axis_alignment.json"
   },
   "joint_axis_direction_corrections": {
-    "date": "2026-11-03",
+    "date": "2026-11-04",
     "joints": {
       "left_joint2": {
         "previous_local_axis": "0 0 1",
         "local_axis": "0 0 -1",
-        "hardware_direction": 1
+        "hardware_direction": 1,
+        "date": "2026-11-03"
       },
       "left_joint6": {
-        "previous_local_axis": "0 0 1",
-        "local_axis": "0 0 -1",
+        "date": "2026-11-04",
+        "previous_local_axis": "0 0 -1",
+        "local_axis": "0 0 1",
         "hardware_direction": 1
       }
     },
-    "reason": "User requested reversed rotation directions in the workspace and remote URDFs. Reversal is applied once in the URDF axes; hardware direction remains +1.",
+    "reason": "Current model axes: left_joint2 remains -Z; left_joint6 corrected from -Z to +Z at user request. Apply the correction once in URDF; hardware direction remains +1.",
     "zero_pose_geometry_changed": false,
-    "physical_motion_tested": false
+    "physical_motion_tested": false,
+    "model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d"
   },
   "joint_position_normalization": {
     "date": "2026-11-03T20:42:14.099362+08:00",
@@ -70,5 +73,18 @@
     "displacement_guard": "Uses continuous encoder angle across the +/-pi boundary.",
     "previous_model_sha256": "b384b64c823fb3342b1a4314ab2a4775fdf712a1a2681089db3079d2c0fdab1c",
     "model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12"
+  },
+  "joint6_axis_update": {
+    "date": "2026-11-04T14:20:36.554222+08:00",
+    "joint": "left_joint6",
+    "previous_local_axis": "0 0 -1",
+    "local_axis": "0 0 1",
+    "hardware_direction": 1,
+    "encoder_offset_deg": 23.35374511,
+    "previous_model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12",
+    "model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d",
+    "zero_pose_geometry_changed": false,
+    "gravity_update": "Rebuild Pinocchio model from the corrected URDF; recompute all joint gravity torques. Keep positive damping and avoid an additional hardware sign reversal.",
+    "physical_motion_tested": false
   }
 }

@@ -79,8 +79,8 @@ int main()
   check(!guard.step(in, p).enable && guard.fault == TorqueSafety::Fault::Displacement &&
     std::abs(guard.fault_snapshot.displacement - 0.2) < 1e-12,
     "capture displacement relative to the original enable position");
-  // User-selected manual range remains bounded at 45 deg/s and 120 degrees.
-  p.max_velocity_rad_s = 45 * 3.141592653589793 / 180;
+  // User-selected manual range remains bounded at 90 deg/s and 120 degrees.
+  p.max_velocity_rad_s = 90 * 3.141592653589793 / 180;
   p.max_displacement_rad = 120 * 3.141592653589793 / 180;
   guard.reset(); in.position = 0; in.velocity = 0;
   check(guard.step(in, p).enable, "arm wide-range test");
@@ -89,11 +89,19 @@ int main()
   in.position = 121 * 3.141592653589793 / 180;
   check(!guard.step(in, p).enable && guard.fault == TorqueSafety::Fault::Displacement,
     "121 degree displacement is still rejected");
-  guard.reset(); in.position = 0;
-  check(guard.step(in, p).enable, "rearm speed test");
-  in.velocity = 46 * 3.141592653589793 / 180;
-  check(!guard.step(in, p).enable && guard.fault == TorqueSafety::Fault::Velocity,
-    "46 deg/s remains above the selected speed limit");
+  for (double speed : {45.013, -45.013, 89.9, -89.9, 90.0, -90.0}) {
+    guard.reset(); in.position = in.velocity = 0;
+    check(guard.step(in, p).enable, "rearm allowed-speed test");
+    in.velocity = speed * 3.141592653589793 / 180;
+    check(guard.step(in, p).enable, "speeds up to 90 deg/s are allowed in either direction");
+  }
+  for (double speed : {90.1, -90.1}) {
+    guard.reset(); in.position = in.velocity = 0;
+    check(guard.step(in, p).enable, "rearm overspeed test");
+    in.velocity = speed * 3.141592653589793 / 180;
+    check(!guard.step(in, p).enable && guard.fault == TorqueSafety::Fault::Velocity,
+      "speeds above 90 deg/s still stop torque in either direction");
+  }
   p.limit_nm = std::numeric_limits<double>::infinity();
   check(!p.valid(), "nonfinite limits rejected");
   std::array<TorqueSafety, 3> group;

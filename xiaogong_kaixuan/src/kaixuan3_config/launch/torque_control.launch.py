@@ -15,6 +15,41 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
+def friction_parameters(joints, settings, identified):
+    """Flatten per-joint identification for the allocation-free C++ controller."""
+    result = {
+        "friction_enabled": True,
+        "friction_scale": float(settings.get("scale", 0.25)),
+        "friction_velocity_deadband_rad_s": math.radians(float(settings.get("velocity_deadband_deg_s", 0.2))),
+        "friction_velocity_full_rad_s": math.radians(float(settings.get("velocity_full_deg_s", 0.5))),
+        "friction_filter_time_constant_s": float(settings.get("filter_time_constant_s", 0.02)),
+        "friction_models": [], "friction_coulomb_nm": [], "friction_viscous_nm_s_per_rad": [],
+        "friction_min_speed_rad_s": [], "friction_max_speed_rad_s": [],
+        "friction_effort_limits_nm": [], "friction_slew_nm_s": [],
+        "friction_lookup_offsets": [0], "friction_lookup_speeds_rad_s": [], "friction_lookup_torques_nm": [],
+    }
+    for joint in joints:
+        model = identified["joints"].get(joint)
+        if model is None and joint.startswith("left_"):
+            raise ValueError(f"Missing identified friction model for {joint}")
+        if model is not None and (not model.get("accepted_local_model") or model["model"] not in ("coulomb_viscous", "velocity_lookup")):
+            raise ValueError(f"Unvalidated friction model for {joint}")
+        candidate = model["coulomb_viscous_candidate"] if model else {}
+        knots = model["odd_friction_velocity_knots"] if model else []
+        speeds = model["speed_range_rad_s"] if model else [0.0, 0.0]
+        result["friction_models"].append(model["model"] if model else "disabled")
+        result["friction_coulomb_nm"].append(float(candidate.get("coulomb_nm", 0)))
+        result["friction_viscous_nm_s_per_rad"].append(float(candidate.get("viscous_nm_s_per_rad", 0)))
+        result["friction_min_speed_rad_s"].append(float(speeds[0]))
+        result["friction_max_speed_rad_s"].append(float(speeds[1]))
+        result["friction_effort_limits_nm"].append(float(settings["effort_limits_nm"][joint]) if model else 0.0)
+        result["friction_slew_nm_s"].append(float(settings["slew_nm_s"][joint]) if model else 0.0)
+        result["friction_lookup_speeds_rad_s"].extend(float(k["speed_rad_s"]) for k in knots)
+        result["friction_lookup_torques_nm"].extend(float(k["friction_nm"]) for k in knots)
+        result["friction_lookup_offsets"].append(len(result["friction_lookup_speeds_rad_s"]))
+    return result
+
+
 def launch_control(context):
     value = lambda name: LaunchConfiguration(name).perform(context)
     joints = [name.strip() for name in value("joints").split(",")]
@@ -79,6 +114,26 @@ def launch_control(context):
             "payload_mass": float(value("payload_mass")), "payload_com": com,
             "payload_frame": value("payload_frame"),
         }}
+        friction = dict(gravity_config.get("friction_compensation", {}))
+        enabled = friction.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ValueError("friction_compensation.enabled must be a YAML boolean")
+        if value("friction_enabled"):
+            enabled = value("friction_enabled") == "true"
+        if value("friction_scale"):
+            friction["scale"] = float(value("friction_scale"))
+        parameters[controller_name]["ros__parameters"]["friction_enabled"] = enabled
+        if enabled:
+            friction_file = value("friction_parameter_file") or friction.get("parameter_file", "left_arm_friction_identified.yaml")
+            if not os.path.isabs(friction_file):
+                friction_file = os.path.join(os.path.dirname(value("gravity_config_file")), friction_file)
+            with open(friction_file, encoding="utf-8") as stream:
+                identified = yaml.safe_load(stream)
+            loaded_friction = friction_parameters(joints, friction, identified)
+            if all(model == "disabled" for model in loaded_friction["friction_models"]):
+                parameters[controller_name]["ros__parameters"]["friction_enabled"] = False
+            else:
+                parameters[controller_name]["ros__parameters"].update(loaded_friction)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="kaixuan_cst_", delete=False) as stream:
         yaml.safe_dump(parameters, stream)
         parameter_path = stream.name
@@ -119,6 +174,9 @@ def generate_launch_description():
         DeclareLaunchArgument("control_kind", default_value="torque", choices=["torque", "gravity"]),
         DeclareLaunchArgument("gravity_scale", default_value="1.0"),
         DeclareLaunchArgument("gravity_ramp_time", default_value="5.0"),
+        DeclareLaunchArgument("friction_enabled", default_value="", choices=["", "true", "false"]),
+        DeclareLaunchArgument("friction_scale", default_value="", description="Optional friction gain in [0,1]; empty uses gravity YAML."),
+        DeclareLaunchArgument("friction_parameter_file", default_value="", description="Optional identification YAML override."),
         DeclareLaunchArgument("gravity_config_file", default_value=os.path.join(
             get_package_share_directory("kaixuan_can_hardware"), "config", "gravity_compensation.yaml")),
         DeclareLaunchArgument("payload_mass", default_value="0.0", description="Additional tool/load mass in kg."),

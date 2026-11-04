@@ -1,9 +1,10 @@
 # 小工凯旋
 
-此仓库包含两个目录：
+此仓库包含以下目录：
 
 - [`xiaogong_kaixuan/`](xiaogong_kaixuan/README.md)：ROS 2 Humble 工作区，含小工凯旋 URDF、MoveIt 配置和复制的 EtherCAT 驱动。
 - [`remote_xiaogong_kaixuan/`](remote_xiaogong_kaixuan/README.md)：独立的远程 RViz 客户端，内含匹配的模型和网格。
+- [`joint_velocity_qp/`](joint_velocity_qp/README.md)：基于 Eigen + OSQP 的独立 C++17 关节速度 QP 求解库、命令行程序及测试。
 
 构建工作区：
 

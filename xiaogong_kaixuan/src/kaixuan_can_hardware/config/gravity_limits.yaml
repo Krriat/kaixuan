@@ -1,10 +1,10 @@
-# Gravity-compensation limits: 20% rated output torque; user-selected 120-degree displacement guard.
+# Gravity-compensation limits: 20% rated output torque; 90 deg/s speed and 120-degree displacement guards.
 kgu20: &id001
   rated_torque_nm: 68.0
   torque_command_units_per_nm: 14.705882352941176
   effort_limit_nm: 13.600000000000001
   effort_slew_nm_s: 6.800000000000001
-  max_velocity_rad_s: 0.7853981633974483
+  max_velocity_rad_s: 1.5707963267948966
   max_displacement_rad: 2.0943951023931953
   min_position_rad: -3.14
   max_position_rad: 3.14
@@ -13,7 +13,7 @@ kgu17: &id002
   torque_command_units_per_nm: 25.0
   effort_limit_nm: 8.0
   effort_slew_nm_s: 4.0
-  max_velocity_rad_s: 0.7853981633974483
+  max_velocity_rad_s: 1.5707963267948966
   max_displacement_rad: 2.0943951023931953
   min_position_rad: -3.14
   max_position_rad: 3.14
@@ -22,7 +22,7 @@ kgu11: &id003
   torque_command_units_per_nm: 66.66666666666667
   effort_limit_nm: 3.0
   effort_slew_nm_s: 1.5
-  max_velocity_rad_s: 0.7853981633974483
+  max_velocity_rad_s: 1.5707963267948966
   max_displacement_rad: 2.0943951023931953
   min_position_rad: -3.14
   max_position_rad: 3.14
@@ -43,7 +43,7 @@ joints:
     torque_command_units_per_nm: 66.66666666666667
     effort_limit_nm: 3.0
     effort_slew_nm_s: 1.5
-    max_velocity_rad_s: 0.7853981633974483
+    max_velocity_rad_s: 1.5707963267948966
     max_displacement_rad: 2.0943951023931953
     min_position_rad: -3.141592653589793
     max_position_rad: 3.141592653589793
