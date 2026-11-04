@@ -16,6 +16,10 @@ def generate_launch_description():
 
     cycle_time_ns = LaunchConfiguration("cycle_time_ns")
     shift_time_ns = LaunchConfiguration("shift_time_ns")
+    dc_clock_mode = LaunchConfiguration("dc_clock_mode")
+    dc_reference_time = LaunchConfiguration("dc_reference_time")
+    dc_reference_sync_cycles = LaunchConfiguration("dc_reference_sync_cycles")
+    dc_reset_after_configuration = LaunchConfiguration("dc_reset_after_configuration")
     priority = LaunchConfiguration("priority")
     master0_affinity = LaunchConfiguration("master0_affinity")
     master1_affinity = LaunchConfiguration("master1_affinity")
@@ -47,6 +51,10 @@ def generate_launch_description():
         robot_xacro,
         " ", "cycle_time_ns:=", cycle_time_ns,
         " ", "shift_time_ns:=", shift_time_ns,
+        " ", "dc_clock_mode:=", dc_clock_mode,
+        " ", "dc_reference_time:=", dc_reference_time,
+        " ", "dc_reference_sync_cycles:=", dc_reference_sync_cycles,
+        " ", "dc_reset_after_configuration:=", dc_reset_after_configuration,
         " ", "priority:=", priority,
         " ", "master0_affinity:=", master0_affinity,
         " ", "master1_affinity:=", master1_affinity,
@@ -130,7 +138,18 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("cycle_time_ns", default_value="1000000"),
-            DeclareLaunchArgument("shift_time_ns", default_value="0"),
+            DeclareLaunchArgument("shift_time_ns", default_value="500000"),
+            DeclareLaunchArgument("dc_clock_mode", default_value="reference",
+                                  choices=["host", "reference"],
+                                  description="Select host-driven clock correction or reference-clock following."),
+            DeclareLaunchArgument("dc_reference_time", default_value="before_sync",
+                                  choices=["cycle_start", "before_sync"]),
+            DeclareLaunchArgument("dc_reference_sync_cycles", default_value="1",
+                                  choices=[str(value) for value in range(1, 101)],
+                                  description="Host-to-reference clock correction interval in EtherCAT cycles."),
+            DeclareLaunchArgument("dc_reset_after_configuration", default_value="false",
+                                  choices=["true", "false"],
+                                  description="Reset DC filter state after configuration and before enabling drives."),
             DeclareLaunchArgument("priority", default_value="90"),
             DeclareLaunchArgument("master0_affinity", default_value="6"),
             DeclareLaunchArgument("master1_affinity", default_value="7"),

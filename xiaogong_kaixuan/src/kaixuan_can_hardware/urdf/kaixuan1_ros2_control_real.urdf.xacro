@@ -1,11 +1,26 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="kaixuan1">
   <!-- Real-hardware ros2_control wrapper for dual-arm EtherCAT control. -->
+  <xacro:arg name="control_mode" default="csp" />
+  <xacro:arg name="stop_cst_group_on_fault" default="false" />
+  <xacro:arg name="cst_joints" default="" />
+  <xacro:arg name="effort_write_timeout_ms" default="100" />
+  <xacro:arg name="max_velocity_rad_s" default="" />
+  <xacro:arg name="max_displacement_deg" default="" />
+  <xacro:arg name="use_mock_hardware" default="false" />
+  <xacro:arg name="torque_config_file" default="$(find kaixuan_can_hardware)/config/torque_limits.yaml" />
+  <xacro:property name="control_mode" value="$(arg control_mode)" />
+  <xacro:property name="cst_joints" value="${'$(arg cst_joints)'.split(',')}" />
+  <xacro:property name="torque_parameters" value="${xacro.load_yaml('$(arg torque_config_file)')['joints']}" />
 
   <xacro:arg name="cycle_time_ns" default="1000000" />
-  <xacro:arg name="shift_time_ns" default="0" />
+  <xacro:arg name="shift_time_ns" default="500000" />
   <xacro:arg name="priority" default="90" />
-  <xacro:arg name="bus_diagnostics" default="true" />
+  <xacro:arg name="bus_diagnostics" default="false" />
+  <xacro:arg name="dc_clock_mode" default="reference" />
+  <xacro:arg name="dc_reference_time" default="before_sync" />
+  <xacro:arg name="dc_reference_sync_cycles" default="1" />
+  <xacro:arg name="dc_reset_after_configuration" default="false" />
   <xacro:arg name="active_arm" default="both" />
   <xacro:arg name="master0_affinity" default="6" />
   <xacro:arg name="master1_affinity" default="7" />
@@ -52,17 +67,33 @@
   <xacro:arg name="right_direction5" default="-1" />
   <xacro:arg name="right_direction6" default="-1" />
   <xacro:arg name="right_direction7" default="1" />
+  <xacro:arg name="left_direction1" default="1" />
+  <xacro:arg name="left_direction2" default="1" />
+  <xacro:arg name="left_direction3" default="1" />
+  <xacro:arg name="left_direction4" default="1" />
+  <xacro:arg name="left_direction5" default="1" />
+  <xacro:arg name="left_direction6" default="1" />
+  <xacro:arg name="left_direction7" default="1" />
 
   <!-- Xiaogong dual-arm robot model. Hardware mappings require calibration before use. -->
   <xacro:include filename="$(find xiaogong_kaixuan)/urdf/xiaogong-kaixuan.urdf" />
 
   <ros2_control name="KaixuanCanSystem" type="system">
     <hardware>
-      <plugin>kaixuan_can_hardware/KaixuanCanSystem</plugin>
+      <xacro:if value="$(arg use_mock_hardware)"><plugin>mock_components/GenericSystem</plugin></xacro:if>
+      <xacro:unless value="$(arg use_mock_hardware)"><plugin>kaixuan_can_hardware/KaixuanCanSystem</plugin></xacro:unless>
+      <param name="control_mode">$(arg control_mode)</param>
+      <param name="stop_cst_group_on_fault">$(arg stop_cst_group_on_fault)</param>
+      <param name="cst_joints">$(arg cst_joints)</param>
+      <param name="effort_write_timeout_ms">$(arg effort_write_timeout_ms)</param>
       <param name="cycle_time_ns">$(arg cycle_time_ns)</param>
       <param name="shift_time_ns">$(arg shift_time_ns)</param>
       <param name="priority">$(arg priority)</param>
       <param name="bus_diagnostics">$(arg bus_diagnostics)</param>
+      <param name="dc_clock_mode">$(arg dc_clock_mode)</param>
+      <param name="dc_reference_time">$(arg dc_reference_time)</param>
+      <param name="dc_reference_sync_cycles">$(arg dc_reference_sync_cycles)</param>
+      <param name="dc_reset_after_configuration">$(arg dc_reset_after_configuration)</param>
       <param name="active_arm">$(arg active_arm)</param>
       <param name="master0_affinity">$(arg master0_affinity)</param>
       <param name="master1_affinity">$(arg master1_affinity)</param>
@@ -104,78 +135,48 @@
       <param name="right_direction5">$(arg right_direction5)</param>
       <param name="right_direction6">$(arg right_direction6)</param>
       <param name="right_direction7">$(arg right_direction7)</param>
+      <param name="left_direction1">$(arg left_direction1)</param>
+      <param name="left_direction2">$(arg left_direction2)</param>
+      <param name="left_direction3">$(arg left_direction3)</param>
+      <param name="left_direction4">$(arg left_direction4)</param>
+      <param name="left_direction5">$(arg left_direction5)</param>
+      <param name="left_direction6">$(arg left_direction6)</param>
+      <param name="left_direction7">$(arg left_direction7)</param>
     </hardware>
 
-    <joint name="right_joint1">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="right_joint2">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="right_joint3">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="right_joint4">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="right_joint5">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="right_joint6">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="right_joint7">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
+    <xacro:macro name="control_joint" params="name">
+      <joint name="${name}">
+        <xacro:if value="${control_mode == 'csp'}"><command_interface name="position"/></xacro:if>
+        <xacro:if value="${control_mode == 'cst' and name in cst_joints}"><command_interface name="effort"/></xacro:if>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="normalize_position">${name == 'left_joint5'}</param>
+        <param name="rated_torque_nm">${torque_parameters[name]['rated_torque_nm']}</param>
+        <param name="torque_command_units_per_nm">${torque_parameters[name]['torque_command_units_per_nm']}</param>
+        <param name="effort_limit_nm">${torque_parameters[name]['effort_limit_nm']}</param>
+        <param name="effort_slew_nm_s">${torque_parameters[name]['effort_slew_nm_s']}</param>
+        <param name="max_velocity_rad_s">${float('$(arg max_velocity_rad_s)') if '$(arg max_velocity_rad_s)' else torque_parameters[name]['max_velocity_rad_s']}</param>
+        <param name="max_displacement_rad">${float('$(arg max_displacement_deg)') * pi / 180.0 if '$(arg max_displacement_deg)' else torque_parameters[name]['max_displacement_rad']}</param>
+        <param name="min_position_rad">${torque_parameters[name]['min_position_rad']}</param>
+        <param name="max_position_rad">${torque_parameters[name]['max_position_rad']}</param>
+      </joint>
+    </xacro:macro>
 
-    <joint name="left_joint1">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="left_joint2">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="left_joint3">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="left_joint4">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="left_joint5">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="left_joint6">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-    <joint name="left_joint7">
-      <command_interface name="position"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
+    <xacro:control_joint name="right_joint1"/>
+    <xacro:control_joint name="right_joint2"/>
+    <xacro:control_joint name="right_joint3"/>
+    <xacro:control_joint name="right_joint4"/>
+    <xacro:control_joint name="right_joint5"/>
+    <xacro:control_joint name="right_joint6"/>
+    <xacro:control_joint name="right_joint7"/>
+
+    <xacro:control_joint name="left_joint1"/>
+    <xacro:control_joint name="left_joint2"/>
+    <xacro:control_joint name="left_joint3"/>
+    <xacro:control_joint name="left_joint4"/>
+    <xacro:control_joint name="left_joint5"/>
+    <xacro:control_joint name="left_joint6"/>
+    <xacro:control_joint name="left_joint7"/>
   </ros2_control>
 </robot>

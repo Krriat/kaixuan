@@ -175,10 +175,10 @@
       "method": "Use the new body shoulder origins/axes. Clock left -90 deg and right 180 deg to retain the original 7-6 hanging arm orientation; arm internal joint data remains unchanged."
     }
   },
-  "preservation": "Arm links, meshes, inertials, axes, limits, joints 2-7 and fixed tool frames copied directly from kaixu_arm. No STEP rebuild or edits from the previous junji_dual_7_6 output are used. Local update on 2026-11-03: left_joint1, left_joint2, left_joint5 and right_joint2 origin rotations changed as recorded in joint_origin_adjustments; meshes, inertials, axes, limits and other joints remain preserved. Zero-pose axis alignment additionally adjusts left_joint2 through left_joint6 origin rotations; link geometry, translations, inertials, limits and local axis attributes remain unchanged.",
+  "preservation": "Arm links, meshes, inertials, axes, limits, joints 2-7 and fixed tool frames copied directly from kaixu_arm. No STEP rebuild or edits from the previous junji_dual_7_6 output are used. Local update on 2026-11-03: left_joint1, left_joint2, left_joint5 and right_joint2 origin rotations changed as recorded in joint_origin_adjustments; meshes, inertials, axes, limits and other joints remain preserved. Zero-pose axis alignment additionally adjusts left_joint2 through left_joint6 origin rotations; link geometry, translations, inertials and limits remain unchanged; local axes of left_joint2 and left_joint6 were subsequently reversed.",
   "joint_origin_adjustments": {
     "date": "2026-11-03",
-    "composition": "Nominal baseline joint-axis rotations followed by the small zero-pose world-axis alignment recorded in zero_pose_axis_alignment.",
+    "composition": "Nominal baseline joint-axis rotations followed by the small zero-pose world-axis alignment recorded in zero_pose_axis_alignment. Historical nominal rotations refer to the original local +Z axes, before joint_axis_direction_corrections.",
     "joints": {
       "left_joint1": {
         "degrees": 180,
@@ -205,7 +205,7 @@
       },
       "left_joint2": {
         "degrees": 190,
-        "axis": "joint-local Z",
+        "axis": "original local +Z, before the later axis reversal",
         "old_rpy": "1.5708 -1.5708 0",
         "new_rpy": "1.57075465431388 1.39629999984693 -4.231507316454497e-05",
         "rotation_matrix": [
@@ -279,11 +279,49 @@
   "zero_pose_axis_alignment": {
     "date": "2026-11-03",
     "scope": "URDF zero pose, relative to world/base_link X-forward Y-left Z-up; joints 2 through 6 only",
-    "method": "Snap each current zero-pose world joint frame to its nearest proper cardinal rotation; express the correction in the joint origin while retaining all joint translations and local axes.",
+    "method": "Snap each current zero-pose world joint frame to its nearest proper cardinal rotation; express the correction in the joint origin while retaining all joint translations and local axes. Later user-requested local-axis sign reversals for left_joint2 and left_joint6 preserve the horizontal/vertical alignment.",
     "tolerance_deg": 1e-10,
     "max_before_tilt_error_deg": 0.002517852350176209,
     "max_after_tilt_error_deg": 8.5346900063828e-14,
     "status": "PASS",
     "report": "docs/left_arm_axis_alignment.json"
+  },
+  "joint_axis_direction_corrections": {
+    "date": "2026-11-03",
+    "joints": {
+      "left_joint2": {
+        "previous_local_axis": "0 0 1",
+        "local_axis": "0 0 -1",
+        "hardware_direction": 1
+      },
+      "left_joint6": {
+        "previous_local_axis": "0 0 1",
+        "local_axis": "0 0 -1",
+        "hardware_direction": 1
+      }
+    },
+    "reason": "User requested reversed rotation directions in the workspace and remote URDFs. Reversal is applied once in the URDF axes; hardware direction remains +1.",
+    "zero_pose_geometry_changed": false,
+    "physical_motion_tested": false
+  },
+  "joint_position_normalization": {
+    "date": "2026-11-03T20:42:14.099362+08:00",
+    "joint": "left_joint5",
+    "range_deg": [
+      -180,
+      180
+    ],
+    "range_convention": "[-180, 180)",
+    "previous_comp_deg": -85.4368157,
+    "comp_deg": 274.5631843,
+    "offset_delta_deg": 360.0,
+    "reference_angle_deg": -180.0,
+    "urdf_lower_rad": -3.141592653589793,
+    "urdf_upper_rad": 3.141592653589793,
+    "geometry_changed": false,
+    "command_mapping": "Choose the encoder-equivalent target closest to current feedback.",
+    "displacement_guard": "Uses continuous encoder angle across the +/-pi boundary.",
+    "previous_model_sha256": "b384b64c823fb3342b1a4314ab2a4775fdf712a1a2681089db3079d2c0fdab1c",
+    "model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12"
   }
 }

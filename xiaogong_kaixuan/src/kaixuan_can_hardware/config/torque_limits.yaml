@@ -1,0 +1,48 @@
+# Output-joint units: N.m, rad, rad/s. Nominal output ratings from the KGU model.
+# command_units_per_nm assumes CST 0x6071 is per-mille of rated torque, as observed
+# on revision 0x00050012/slave6; calibrate the scale before precision force control.
+kgu20: &kgu20
+  rated_torque_nm: 68.0
+  torque_command_units_per_nm: 14.705882352941176
+  effort_limit_nm: 3.4
+  effort_slew_nm_s: 34.0
+  max_velocity_rad_s: 0.7853981633974483
+  max_displacement_rad: 2.0943951023931953
+  min_position_rad: -3.14
+  max_position_rad: 3.14
+kgu17: &kgu17
+  rated_torque_nm: 40.0
+  torque_command_units_per_nm: 25.0
+  effort_limit_nm: 2.0
+  effort_slew_nm_s: 20.0
+  max_velocity_rad_s: 0.7853981633974483
+  max_displacement_rad: 2.0943951023931953
+  min_position_rad: -3.14
+  max_position_rad: 3.14
+kgu11: &kgu11
+  rated_torque_nm: 15.0
+  torque_command_units_per_nm: 66.66666666666667
+  effort_limit_nm: 0.75
+  effort_slew_nm_s: 7.5
+  max_velocity_rad_s: 0.7853981633974483
+  max_displacement_rad: 2.0943951023931953
+  min_position_rad: -3.14
+  max_position_rad: 3.14
+joints:
+  right_joint1: *kgu20
+  right_joint2: *kgu20
+  right_joint3: *kgu17
+  right_joint4: *kgu17
+  right_joint5: *kgu11
+  right_joint6: *kgu11
+  right_joint7: *kgu11
+  left_joint1: *kgu20
+  left_joint2: *kgu20
+  left_joint3: *kgu17
+  left_joint4: *kgu17
+  left_joint5:
+    <<: *kgu11
+    min_position_rad: -3.141592653589793
+    max_position_rad: 3.141592653589793
+  left_joint6: *kgu11
+  left_joint7: *kgu11

@@ -12,6 +12,12 @@
 #include <vector>
 
 #include <ecrt.h>
+#include "kaixuan_can_hardware/startup_guard.hpp"
+#include "kaixuan_can_hardware/dc_startup_reset.hpp"
+#include "kaixuan_can_hardware/dc_reference_follower.hpp"
+#include "kaixuan_can_hardware/dc_reference_trace.hpp"
+#include "kaixuan_can_hardware/torque_safety.hpp"
+#include "kaixuan_can_hardware/joint_angle_mapping.hpp"
 
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
@@ -51,6 +57,10 @@ public:
 
   std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
   std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
+  hardware_interface::return_type prepare_command_mode_switch(
+    const std::vector<std::string> & start, const std::vector<std::string> & stop) override;
+  hardware_interface::return_type perform_command_mode_switch(
+    const std::vector<std::string> & start, const std::vector<std::string> & stop) override;
 
   hardware_interface::return_type read(
     const rclcpp::Time & time,
@@ -101,10 +111,16 @@ private:
     int status_word{-1};
     int mode_of_operation{-1};
     int target_position{-1};
+    int target_torque{-1};
+    int mode_display{-1};
     int position_actual_value{-1};
     int velocity_actual_value{-1};
     int torque_actual_value{-1};
     int error_code{-1};
+    unsigned torque_feedback_unit{0};
+    bool velocity_counts_per_second{false};
+    double rated_current_a{0.0};
+    EnableSettle enable_settle{};
   };
 
   enum class O6HandshakeState : std::uint8_t
@@ -256,6 +272,43 @@ private:
     bool probe_bus_ready{false};
     std::uint64_t max_probe_work_ns{0};
     std::uint64_t loop_exit_ns{0}, final_receive_ns{0};
+    StartupGuard startup_guard{};
+    ec_reg_request_t * dc_reset_request{nullptr};
+    DcStartupReset dc_reset{};
+    DcStartupReset::Status dc_reset_status{};
+    DcStartupReset::Action dc_reset_action{};
+    bool dc_reset_queue_rejected{false};
+    DcReferenceFollower::Config dc_follower_config{};
+    DcReferenceFollower dc_follower{};
+    DcReferenceFollower::Output dc_follower_status{};
+    std::unique_ptr<DcReferenceTraceRing> dc_trace;
+    std::string dc_trace_directory;
+    DcReferenceTraceRing::RawBracket reference_sample_raw{};
+    DcReferenceTraceRing::Row dc_trace_row{};
+    bool dc_trace_dump_attempted{false};
+    bool reference_sample_pending{false}, follower_schedule_failed{false};
+    bool follower_getter_failed{false};
+    unsigned int follower_getter_consecutive_errors{0};
+    std::uint64_t reference_sample_virtual_ns{0}, reference_sample_mono_ns{0};
+    std::uint64_t reference_sample_cycle{0}, reference_getter_retry_cycle{0};
+    std::uint64_t reference_getter_errors{0}, follower_skipped_periods{0};
+    std::uint32_t follower_last_ref32{0};
+    std::uint64_t follower_failure_cycle{0}, follower_reject_cycle{0};
+    std::int64_t follower_failure_residual_ns{0}, follower_reject_residual_ns{0};
+    unsigned int follower_reject_reason{0};
+    std::uint64_t follower_ref_received_cycle{0}, follower_calibration_cycle{0};
+    std::int64_t follower_calibration_delta_ns{0};
+    bool dc_monitor_pending{false}, dc_sample_updated{false};
+    std::uint32_t dc_difference_ns{UINT32_MAX};
+    std::uint64_t dc_pending_queue_cycle{0}, dc_pending_reference_age_cycles{UINT64_MAX};
+    std::uint64_t dc_sample_queue_cycle{0}, dc_sample_reference_age_cycles{UINT64_MAX};
+    std::array<std::uint64_t, 9> timing_max_ns{}, timing_window_max_ns{}, timing_completed_max_ns{};
+    std::uint64_t timing_window_start_ns{0}, timing_window_cycles{0};
+    std::uint64_t timing_completed_start_ns{0}, timing_completed_end_ns{0}, timing_completed_cycles{0};
+    std::uint64_t timing_mutex_wait_ns{0}, slow_send_cycles{0}, last_slow_send_ns{0};
+    std::uint64_t sync_errors{0}, schedule_rebases{0};
+    std::uint64_t reference_sync_attempts{0}, reference_sync_queued{0}, last_reference_sync_cycle{0};
+    std::uint64_t timing_reference_sync_cycles{0}, timing_completed_reference_sync_cycles{0};
   };
 
   // Fixed-size snapshots only; no ROS allocation or disk I/O in the cyclic loop.
@@ -266,6 +319,12 @@ private:
     std::uint16_t status_word{0}, control_word{0}, error_code{0}, last_error_code{0};
     std::uint64_t fault_cycles{0};
     double position_rad{0}, velocity_rad_s{0};
+    double effort_nm{0}, commanded_effort_nm{0};
+    std::int16_t target_torque_raw{0};
+    int actual_mode{0};
+    unsigned torque_guard_fault{0};
+    TorqueSafety::FaultSnapshot torque_fault_snapshot{};
+    bool effort_claimed{false}, torque_armed{false};
     bool following_error{false};
   };
   struct MasterDiagnostic
@@ -274,6 +333,33 @@ private:
     std::uint64_t max_cycle_lateness_ns{0}, max_loop_interval_ns{0};
     std::uint64_t max_probe_work_ns{0};
     unsigned int working_counter{0}, wc_state{0};
+    bool startup_ready{false};
+    bool dc_reset_ready{true}, dc_reset_failed{false};
+    unsigned int dc_reset_phase{0}, dc_reset_error{0};
+    std::uint16_t dc_reset_original_bandwidth{0};
+    std::uint8_t dc_reset_original_filter{0};
+    std::uint64_t dc_reset_observation_start_ns{0};
+    DcReferenceFollower::Config dc_follower_config{};
+    DcReferenceFollower::Output dc_follower{};
+    bool dc_follower_ready{true}, dc_follower_failed{false}, follower_schedule_failed{false};
+    bool follower_getter_failed{false};
+    unsigned int follower_getter_consecutive_errors{0};
+    std::uint64_t reference_getter_errors{0}, follower_skipped_periods{0};
+    std::uint64_t reference_sample_cycle{0};
+    std::uint32_t follower_last_ref32{0};
+    std::uint64_t follower_failure_cycle{0}, follower_reject_cycle{0};
+    std::int64_t follower_failure_residual_ns{0}, follower_reject_residual_ns{0};
+    unsigned int follower_reject_reason{0};
+    std::uint64_t follower_ref_received_cycle{0}, follower_calibration_cycle{0};
+    std::int64_t follower_calibration_delta_ns{0};
+    unsigned int startup_bus_cycles{0}, startup_dc_samples{0};
+    std::uint32_t dc_difference_ns{UINT32_MAX};
+    std::uint64_t dc_sample_queue_cycle{0}, dc_sample_reference_age_cycles{UINT64_MAX};
+    std::array<std::uint64_t, 9> timing_max_ns{}, timing_window_max_ns{};
+    std::uint64_t timing_window_start_ns{0}, timing_window_end_ns{0}, timing_window_cycles{0};
+    std::uint64_t slow_send_cycles{0}, last_slow_send_ns{0}, sync_errors{0}, schedule_rebases{0};
+    std::uint64_t reference_sync_attempts{0}, reference_sync_queued{0}, last_reference_sync_cycle{0};
+    std::uint64_t timing_reference_sync_cycles{0};
     std::array<AxisDiagnostic, kJointsPerArm> axes{};
   };
   std::array<MasterDiagnostic, kMasterCount> diagnostic_snapshots_{};
@@ -349,23 +435,45 @@ private:
 
   // 1 kHz EtherCAT cycle: 1 ms.
   std::int64_t cycle_time_ns_{1000000};
-  std::int64_t shift_time_ns_{0};
+  std::int64_t shift_time_ns_{500000};
   int priority_{90};
   std::string active_arm_{"both"};
-  bool bus_diagnostics_{true};
+  bool bus_diagnostics_{false};
+  bool fresh_reference_time_{true};
+  std::uint32_t reference_sync_cycles_{1};
+  bool dc_reset_after_configuration_{false};
+  bool follow_reference_clock_{true};
+  void poll_dc_startup_reset(MasterContext &, const ec_domain_state_t &, std::uint64_t);
+  void poll_dc_reference_follower(MasterContext &, const ec_domain_state_t &, std::uint64_t);
+  void dump_dc_reference_trace(MasterContext &);
   std::uint64_t deactivate_requested_ns_{0};
   std::int64_t o6_command_timeout_ns_{0};
   std::uint8_t o6_max_step_{255};
   bool o6_imu_only_{false};
 
-  // Joint state/commands use radians, as required by ros2_control.
+  bool cst_mode_{false};
+  bool stop_cst_group_on_fault_{false};
+  std::array<bool, kNumJoints> cst_selected_{}, effort_claimed_{};
+  std::array<TorqueParameters, kNumJoints> torque_parameters_{};
+  std::array<TorqueSafety, kNumJoints> torque_safety_{};
+  // Accessed only by the non-real-time diagnostics publisher.
+  std::array<unsigned, kNumJoints> logged_torque_fault_{};
+  std::vector<std::string> joint_command_names_;
+  std::array<double, kNumJoints> requested_efforts_{}, measured_efforts_{};
+  std::array<double, kNumJoints> measured_positions_{}, measured_velocities_{};
+  std::uint64_t effort_write_ns_{0}, effort_write_timeout_ns_{100000000};
+
+  // ROS units: position in rad, velocity in rad/s, effort in output-joint N.m.
+  // hw_commands_ contains position in CSP and effort in CST.
   std::vector<double> hw_positions_;
   std::vector<double> hw_velocities_;
+  std::vector<double> hw_efforts_;
   std::vector<double> hw_commands_;
   std::vector<double> joint_offset_deg_;
   std::vector<double> joint_direction_;
   std::vector<double> joint_gear_ratio_;
   std::vector<std::int32_t> commanded_counts_;
+  std::array<std::int32_t, kNumJoints> actual_counts_{};
   std::vector<bool> position_initialized_;
   std::mutex io_mutex_;
 

@@ -1,0 +1,7 @@
+<library path="kaixuan_torque_controller">
+  <class name="kaixuan_can_hardware/TorqueController"
+         type="kaixuan_can_hardware::TorqueController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Joint effort commands in N.m with a monotonic receipt timeout.</description>
+  </class>
+</library>

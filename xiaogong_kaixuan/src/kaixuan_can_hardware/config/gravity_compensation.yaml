@@ -1,0 +1,19 @@
+# B in N.m / (rad/s), gravity_vector in the URDF root/world frame, m/s^2.
+# gravity_scale=1 applies the full model torque; the controller adds no position spring.
+gravity_vector: [0.0, 0.0, -9.80665]
+zero_hold_duration: 0.5
+damping:
+  left_joint1: 2.0
+  left_joint2: 2.0
+  left_joint3: 1.0
+  left_joint4: 0.8
+  left_joint5: 0.2
+  left_joint6: 0.2
+  left_joint7: 0.1
+  right_joint1: 2.0
+  right_joint2: 2.0
+  right_joint3: 1.0
+  right_joint4: 0.8
+  right_joint5: 0.2
+  right_joint6: 0.2
+  right_joint7: 0.1

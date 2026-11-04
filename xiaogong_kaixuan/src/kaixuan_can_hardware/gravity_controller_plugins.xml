@@ -1,0 +1,7 @@
+<library path="kaixuan_gravity_controller">
+  <class name="kaixuan_can_hardware/GravityController"
+         type="kaixuan_can_hardware::GravityController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Pinocchio gravity feedforward with joint damping and a zero-to-gravity ramp.</description>
+  </class>
+</library>

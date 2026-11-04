@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <robot name="kaixuan1">
-  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs, shoulder attachment transforms, and requested left_joint1/left_joint2/left_joint5/right_joint2 zero-pose rotations and left_joint2 through left_joint6 zero-pose world-axis alignment. -->
+  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs, shoulder attachment transforms, and requested left_joint1/left_joint2/left_joint5/right_joint2 zero-pose rotations and left_joint2 through left_joint6 zero-pose world-axis alignment, plus left_joint2/left_joint6 local-axis reversal. -->
   <link name="world" />
   <link name="base_link">
     <inertial>
@@ -201,7 +201,7 @@
     <origin xyz="0 0 0.0727" rpy="1.57075465431388 1.39629999984693 -4.231507316454497e-05" />
     <parent link="left_link1" />
     <child link="left_link2" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint3" type="revolute">
@@ -223,13 +223,13 @@
     <parent link="left_link4" />
     <child link="left_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
+    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint6" type="revolute">
     <origin xyz="0 0 0.08405" rpy="0 -1.570796326794896 0" />
     <parent link="left_link5" />
     <child link="left_link6" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit lower="-3.14" upper="3.14" effort="0" velocity="0" />
   </joint>
   <joint name="left_joint7" type="revolute">

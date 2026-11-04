@@ -1,4 +1,5 @@
 #include "kaixuan_can_hardware/kaixuan_can_system.hpp"
+#include "kaixuan_can_hardware/dc_reference_profile.hpp"
 
 #include <pthread.h>
 #include <sched.h>
@@ -16,6 +17,10 @@
 #include <cstdlib>
 #include <exception>
 #include <functional>
+#include <filesystem>
+#include <iomanip>
+#include <locale>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -83,6 +88,22 @@ const ec_sync_info_t kSyncManagers[] = {
   {0xFF, EC_DIR_INVALID, 0, nullptr, EC_WD_DEFAULT},
 };
 
+// CST layout verified on KDE revision 0x00050012. Keep the dormant position
+// target initialized, and read actual mode separately from the mode request.
+const ec_pdo_entry_info_t kCstRxEntries[] = {
+  {0x6040, 0, 16}, {0x607A, 0, 32}, {0x6060, 0, 8}, {0x6071, 0, 16}};
+const ec_pdo_entry_info_t kCstTxEntries[] = {
+  {0x6041, 0, 16}, {0x6064, 0, 32}, {0x606C, 0, 32},
+  {0x6077, 0, 16}, {0x603F, 0, 16}, {0x6061, 0, 8}};
+const ec_pdo_info_t kCstRxPdos[] = {{0x1601, 4, kCstRxEntries}};
+const ec_pdo_info_t kCstTxPdos[] = {{0x1A01, 6, kCstTxEntries}};
+const ec_sync_info_t kCstSyncManagers[] = {
+  {0, EC_DIR_OUTPUT, 0, nullptr, EC_WD_DISABLE},
+  {1, EC_DIR_INPUT, 0, nullptr, EC_WD_DISABLE},
+  {2, EC_DIR_OUTPUT, 1, kCstRxPdos, EC_WD_ENABLE},
+  {3, EC_DIR_INPUT, 1, kCstTxPdos, EC_WD_DISABLE},
+  {0xFF, EC_DIR_INVALID, 0, nullptr, EC_WD_DEFAULT}};
+
 }  // namespace
 
 KaixuanCanSystem::~KaixuanCanSystem()
@@ -116,6 +137,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
 
   hw_positions_.assign(kNumJoints, 0.0);
   hw_velocities_.assign(kNumJoints, 0.0);
+  hw_efforts_.assign(kNumJoints, 0.0);
   hw_commands_.assign(kNumJoints, 0.0);
   joint_offset_deg_.assign(kNumJoints, 0.0);
   joint_direction_.assign(kNumJoints, 1.0);
@@ -125,6 +147,17 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
 
   try
   {
+    const auto mode = info_.hardware_parameters.count("control_mode") ?
+      info_.hardware_parameters.at("control_mode") : "csp";
+    if (mode != "csp" && mode != "cst") {throw std::invalid_argument("control_mode must be csp or cst");}
+    cst_mode_ = mode == "cst";
+    stop_cst_group_on_fault_ = info_.hardware_parameters.count("stop_cst_group_on_fault") &&
+      info_.hardware_parameters.at("stop_cst_group_on_fault") == "true";
+    if (info_.hardware_parameters.count("effort_write_timeout_ms")) {
+      const auto timeout = std::stoll(info_.hardware_parameters.at("effort_write_timeout_ms"));
+      if (timeout < 20 || timeout > 1000) {throw std::invalid_argument("effort_write_timeout_ms must be in [20, 1000]");}
+      effort_write_timeout_ns_ = static_cast<std::uint64_t>(timeout) * 1000000;
+    }
     if (info_.hardware_parameters.count("active_arm"))
     {
       active_arm_ = info_.hardware_parameters.at("active_arm");
@@ -132,6 +165,36 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
     if (info_.hardware_parameters.count("bus_diagnostics")) {
       const auto & value = info_.hardware_parameters.at("bus_diagnostics");
       bus_diagnostics_ = value == "true" || value == "True" || value == "1";
+    }
+    if (info_.hardware_parameters.count("dc_reference_time")) {
+      const auto & value = info_.hardware_parameters.at("dc_reference_time");
+      if (value != "cycle_start" && value != "before_sync") {
+        throw std::invalid_argument("dc_reference_time must be cycle_start or before_sync");
+      }
+      fresh_reference_time_ = value == "before_sync";
+    }
+    if (info_.hardware_parameters.count("dc_clock_mode")) {
+      const auto & value = info_.hardware_parameters.at("dc_clock_mode");
+      if (value != "host" && value != "reference") {
+        throw std::invalid_argument("dc_clock_mode must be host or reference");
+      }
+      follow_reference_clock_ = value == "reference";
+    }
+    if (info_.hardware_parameters.count("dc_reference_sync_cycles")) {
+      const auto & text = info_.hardware_parameters.at("dc_reference_sync_cycles");
+      std::size_t parsed = 0;
+      const auto value = std::stoll(text, &parsed);
+      if (parsed != text.size() || value < 1 || value > 100) {
+        throw std::invalid_argument("dc_reference_sync_cycles must be an integer in [1, 100]");
+      }
+      reference_sync_cycles_ = static_cast<std::uint32_t>(value);
+    }
+    if (info_.hardware_parameters.count("dc_reset_after_configuration")) {
+      const auto & value = info_.hardware_parameters.at("dc_reset_after_configuration");
+      if (value != "true" && value != "false" && value != "1" && value != "0") {
+        throw std::invalid_argument("dc_reset_after_configuration must be true or false");
+      }
+      dc_reset_after_configuration_ = value == "true" || value == "1";
     }
     if (info_.hardware_parameters.count("cycle_time_ns"))
     {
@@ -225,6 +288,58 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
           std::stod(info_.hardware_parameters.at(left_gear_ratio_key));
       }
     }
+
+    cst_selected_.fill(false);
+    if (cst_mode_) {
+      std::istringstream names(info_.hardware_parameters.at("cst_joints"));
+      std::string name;
+      while (std::getline(names, name, ',')) {
+        const auto found = std::find_if(info_.joints.begin(), info_.joints.end(),
+          [&name](const auto & joint) {return joint.name == name;});
+        if (found == info_.joints.end()) {throw std::invalid_argument("Unknown cst_joints entry: " + name);}
+        const auto index = static_cast<std::size_t>(found - info_.joints.begin());
+        if (cst_selected_[index] || !joint_is_active(index)) {
+          throw std::invalid_argument("Duplicate or inactive CST joint: " + name);
+        }
+        cst_selected_[index] = true;
+      }
+      if (std::none_of(cst_selected_.begin(), cst_selected_.end(), [](bool v) {return v;})) {
+        throw std::invalid_argument("CST requires an explicit cst_joints selection");
+      }
+    }
+    joint_command_names_.resize(kNumJoints);
+    for (std::size_t joint = 0; joint < kNumJoints; ++joint) {
+      const auto expected = std::string(joint < 7 ? "right_joint" : "left_joint") + std::to_string(joint % 7 + 1);
+      if (info_.joints[joint].name != expected) {throw std::invalid_argument("Unexpected joint order; expected " + expected);}
+      auto & p = torque_parameters_[joint];
+      const auto parameter = [&](const char * key, double fallback) {
+        const auto & params = info_.joints[joint].parameters;
+        return params.count(key) ? std::stod(params.at(key)) : fallback;
+      };
+      const double nominal = joint % 7 < 2 ? 68.0 : (joint % 7 < 4 ? 40.0 : 15.0);
+      p.rated_nm = parameter("rated_torque_nm", nominal);
+      p.command_units_per_nm = parameter("torque_command_units_per_nm", 1000.0 / p.rated_nm);
+      p.limit_nm = parameter("effort_limit_nm", 0.05 * p.rated_nm);
+      p.slew_nm_s = parameter("effort_slew_nm_s", 0.5 * p.rated_nm);
+      p.max_velocity_rad_s = parameter("max_velocity_rad_s", degrees_to_radians(45.0));
+      p.max_displacement_rad = parameter("max_displacement_rad", degrees_to_radians(120.0));
+      p.min_position_rad = parameter("min_position_rad", -3.14);
+      p.max_position_rad = parameter("max_position_rad", 3.14);
+      const auto & params = info_.joints[joint].parameters;
+      const auto normalization = params.count("normalize_position") ? params.at("normalize_position") : "false";
+      if (normalization != "true" && normalization != "True" && normalization != "1" &&
+        normalization != "false" && normalization != "False" && normalization != "0")
+      {throw std::invalid_argument("normalize_position must be true or false for " + expected);}
+      p.normalize_position = normalization == "true" || normalization == "True" || normalization == "1";
+      if (!p.valid()) {throw std::invalid_argument("Invalid torque limits/scales for " + expected);}
+      const auto & interfaces = info_.joints[joint].command_interfaces;
+      const auto interface_name = cst_mode_ ? "effort" : "position";
+      const std::size_t wanted = !cst_mode_ || cst_selected_[joint] ? 1 : 0;
+      if (interfaces.size() != wanted || (wanted && interfaces[0].name != interface_name)) {
+        throw std::invalid_argument("Command interfaces do not match control_mode/cst_joints for " + expected);
+      }
+      joint_command_names_[joint] = expected + "/" + interface_name;
+    }
   }
   catch (const std::exception & exception)
   {
@@ -283,6 +398,12 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
       static_cast<long>(o6_command_timeout_ns_ / 1000000LL));
     return hardware_interface::CallbackReturn::ERROR;
   }
+  if (follow_reference_clock_ &&
+    (cycle_time_ns_ != 1000000 || dc_reset_after_configuration_))
+  {
+    RCLCPP_ERROR(logger_, "Reference-clock following requires 1 ms and dc_reset_after_configuration=false; each active master follows its own reference");
+    return hardware_interface::CallbackReturn::ERROR;
+  }
 
   const long cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
   for (std::size_t i = 0; i < masters_.size(); ++i)
@@ -309,11 +430,16 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
   RCLCPP_INFO(
     logger_,
     "Direct IgH EtherCAT: active_arm=%s master0_cpu=%d master1_cpu=%d cycle=%ldns "
-    "shift=%ldns priority=%d o6_imu_only=%s",
+    "shift=%ldns priority=%d o6_imu_only=%s dc_reference_time=%s dc_reference_sync_cycles=%u dc_reset_after_configuration=%s dc_clock_mode=%s",
     active_arm_.c_str(),
     masters_[0].affinity, masters_[1].affinity,
     static_cast<long>(cycle_time_ns_), static_cast<long>(shift_time_ns_),
-    priority_, o6_imu_only_ ? "true" : "false");
+    priority_, o6_imu_only_ ? "true" : "false",
+    fresh_reference_time_ ? "before_sync" : "cycle_start", reference_sync_cycles_,
+    dc_reset_after_configuration_ ? "true" : "false", follow_reference_clock_ ? "reference" : "host");
+  RCLCPP_INFO(logger_, "Control mode: %s; effort interface unit=N.m; write timeout=%lums",
+    cst_mode_ ? "CST (controller claim and fresh zero command required)" : "CSP",
+    static_cast<unsigned long>(effort_write_timeout_ns_ / 1000000));
 
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -325,6 +451,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_configure(
   stop_o6_ros_interfaces();
   close_ethercat();
   diagnostic_snapshots_ = {};
+  logged_torque_fault_.fill(0);
   for (auto & capture : cycle_captures_) {capture.reset();}
   for (auto & capture : bus_captures_) {capture.reset();}
   deactivate_requested_ns_ = 0;
@@ -364,10 +491,30 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_activate(
   {
     {
       std::lock_guard<std::mutex> lock(io_mutex_);
-      if (all_joint_positions_ready())
+      bool dc_ready = true;
+      for (std::size_t master = 0; master < kMasterCount; ++master) {
+        if (!master_is_active(master)) {continue;}
+        const auto & snapshot = diagnostic_snapshots_[master];
+        if (masters_[master].thread_failed.load() || snapshot.dc_reset_failed || snapshot.dc_follower_failed) {
+          RCLCPP_ERROR(logger_, "Master%zu startup failed: DC reset phase=%u error=%u follower_error=%u schedule_failed=%d; drives remain disabled",
+            master, snapshot.dc_reset_phase, snapshot.dc_reset_error,
+            static_cast<unsigned int>(snapshot.dc_follower.failure), snapshot.follower_schedule_failed);
+          return hardware_interface::CallbackReturn::ERROR;
+        }
+        dc_ready = dc_ready && snapshot.dc_reset_ready && snapshot.dc_follower_ready;
+      }
+      if (all_joint_positions_ready() && dc_ready)
       {
+        std::copy(measured_positions_.begin(), measured_positions_.end(), hw_positions_.begin());
+        std::copy(measured_velocities_.begin(), measured_velocities_.end(), hw_velocities_.begin());
         activated_ = true;
-        hw_commands_ = hw_positions_;
+        if (cst_mode_) {
+          std::fill(hw_commands_.begin(), hw_commands_.end(), std::numeric_limits<double>::quiet_NaN());
+          requested_efforts_.fill(std::numeric_limits<double>::quiet_NaN());
+          effort_claimed_.fill(false);
+          effort_write_ns_ = 0;
+          for (auto & guard : torque_safety_) {guard.reset();}
+        } else {hw_commands_ = hw_positions_;}
         for (std::size_t joint = 0; joint < kNumJoints; ++joint)
         {
           if (!joint_is_active(joint))
@@ -375,7 +522,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_activate(
             continue;
           }
           commanded_counts_[joint] =
-            radians_to_joint_counts(hw_commands_[joint], joint);
+            radians_to_joint_counts(hw_positions_[joint], joint);
         }
         RCLCPP_INFO(
           logger_, "EtherCAT hardware activated for %s arm(s)", active_arm_.c_str());
@@ -401,7 +548,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_activate(
     }
   }
   RCLCPP_ERROR(
-    logger_, "Timed out waiting for EtherCAT feedback. Missing: %s",
+    logger_, "Timed out waiting for EtherCAT feedback/DC initialization. Missing feedback: %s",
     not_ready.c_str());
   return hardware_interface::CallbackReturn::ERROR;
 }
@@ -413,6 +560,9 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_deactivate(
   {
     std::lock_guard<std::mutex> lock(io_mutex_);
     activated_ = false;
+    effort_claimed_.fill(false);
+    requested_efforts_.fill(std::numeric_limits<double>::quiet_NaN());
+    effort_write_ns_ = 0;
   }
   {
     std::lock_guard<std::mutex> lock(o6_mutex_);
@@ -430,7 +580,7 @@ std::vector<hardware_interface::StateInterface>
 KaixuanCanSystem::export_state_interfaces()
 {
   std::vector<hardware_interface::StateInterface> state_interfaces;
-  state_interfaces.reserve(kNumJoints * 2);
+  state_interfaces.reserve(kNumJoints * 3);
   for (std::size_t i = 0; i < kNumJoints; ++i)
   {
     state_interfaces.emplace_back(
@@ -439,6 +589,8 @@ KaixuanCanSystem::export_state_interfaces()
     state_interfaces.emplace_back(
       info_.joints[i].name, hardware_interface::HW_IF_VELOCITY,
       &hw_velocities_[i]);
+    state_interfaces.emplace_back(
+      info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_efforts_[i]);
   }
   return state_interfaces;
 }
@@ -450,17 +602,52 @@ KaixuanCanSystem::export_command_interfaces()
   command_interfaces.reserve(kNumJoints);
   for (std::size_t i = 0; i < kNumJoints; ++i)
   {
+    if (cst_mode_ && !cst_selected_[i]) {continue;}
     command_interfaces.emplace_back(
-      info_.joints[i].name, hardware_interface::HW_IF_POSITION,
+      info_.joints[i].name, cst_mode_ ? hardware_interface::HW_IF_EFFORT : hardware_interface::HW_IF_POSITION,
       &hw_commands_[i]);
   }
   return command_interfaces;
+}
+
+hardware_interface::return_type KaixuanCanSystem::prepare_command_mode_switch(
+  const std::vector<std::string> & start, const std::vector<std::string> &)
+{
+  for (const auto & key : start) {
+    for (std::size_t joint = 0; joint < kNumJoints; ++joint) {
+      if (key.rfind(info_.joints[joint].name + "/", 0) != 0) {continue;}
+      if (key != joint_command_names_[joint] ||
+        (cst_mode_ && (!cst_selected_[joint] || !joint_is_active(joint))))
+      {return hardware_interface::return_type::ERROR;}
+    }
+  }
+  return hardware_interface::return_type::OK;
+}
+
+hardware_interface::return_type KaixuanCanSystem::perform_command_mode_switch(
+  const std::vector<std::string> & start, const std::vector<std::string> & stop)
+{
+  if (!cst_mode_) {return hardware_interface::return_type::OK;}
+  std::lock_guard<std::mutex> lock(io_mutex_);
+  for (std::size_t joint = 0; joint < kNumJoints; ++joint) {
+    const auto & key = joint_command_names_[joint];
+    const bool stopping = std::find(stop.begin(), stop.end(), key) != stop.end();
+    const bool starting = std::find(start.begin(), start.end(), key) != start.end();
+    if (!stopping && !starting) {continue;}
+    effort_claimed_[joint] = starting && cst_selected_[joint];
+    requested_efforts_[joint] = hw_commands_[joint] = std::numeric_limits<double>::quiet_NaN();
+    torque_safety_[joint].reset();
+  }
+  return hardware_interface::return_type::OK;
 }
 
 hardware_interface::return_type KaixuanCanSystem::read(
   const rclcpp::Time &, const rclcpp::Duration &)
 {
   std::lock_guard<std::mutex> lock(io_mutex_);
+  std::copy(measured_positions_.begin(), measured_positions_.end(), hw_positions_.begin());
+  std::copy(measured_velocities_.begin(), measured_velocities_.end(), hw_velocities_.begin());
+  std::copy(measured_efforts_.begin(), measured_efforts_.end(), hw_efforts_.begin());
   return configured_ ? hardware_interface::return_type::OK
                      : hardware_interface::return_type::ERROR;
 }
@@ -471,6 +658,15 @@ hardware_interface::return_type KaixuanCanSystem::write(
   std::lock_guard<std::mutex> lock(io_mutex_);
   if (!activated_)
   {
+    return hardware_interface::return_type::OK;
+  }
+
+  if (cst_mode_) {
+    effort_write_ns_ = steady_now_ns();
+    for (std::size_t joint = 0; joint < kNumJoints; ++joint) {
+      requested_efforts_[joint] = effort_claimed_[joint] ? hw_commands_[joint] :
+        std::numeric_limits<double>::quiet_NaN();
+    }
     return hardware_interface::return_type::OK;
   }
 
@@ -523,6 +719,7 @@ void KaixuanCanSystem::close_ethercat()
       closing[i].present = masters_[i].master != nullptr;
       closing[i].before = diagnostic_snapshots_[i];
     }
+    activated_ = false;
   }
   {
     std::lock_guard<std::mutex> lock(o6_mutex_);
@@ -532,10 +729,35 @@ void KaixuanCanSystem::close_ethercat()
       command.update_time_ns = steady_now_ns();
     }
   }
-  for (auto & context : masters_)
-  {
-    context.running.store(false);
+  // Keep PDO traffic alive until each running arm has sent shutdown controlwords
+  // and received non-enabled feedback. Allow at least 20 communication cycles.
+  const auto disable_deadline = std::chrono::steady_clock::now() +
+    std::chrono::milliseconds(500);
+  bool disable_complete = false;
+  while (std::chrono::steady_clock::now() < disable_deadline) {
+    disable_complete = true;
+    {
+      std::lock_guard<std::mutex> lock(io_mutex_);
+      for (std::size_t i = 0; i < kMasterCount; ++i) {
+        if (!closing[i].present || !masters_[i].running.load()) {continue;}
+        const auto & latest = diagnostic_snapshots_[i];
+        if (latest.cycle_count < closing[i].before.cycle_count + 20) {
+          disable_complete = false;
+        }
+        for (const auto & axis : latest.axes) {
+          if (axis.control_word != 0x0006 || (axis.status_word & 0x006f) == 0x0027) {
+            disable_complete = false;
+          }
+        }
+      }
+    }
+    if (disable_complete) {break;}
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
+  if (!disable_complete) {
+    RCLCPP_WARN(logger_, "Arm disable feedback not confirmed within 500 ms before release");
+  }
+  for (auto & context : masters_) {context.running.store(false);}
   for (auto & context : masters_)
   {
     if (context.cyclic_thread.joinable())
@@ -582,6 +804,7 @@ void KaixuanCanSystem::close_ethercat()
     context.slave_configs.fill(nullptr);
     context.probe_registers.fill(nullptr);
     context.probe_sdos.fill(nullptr);
+    context.dc_reset_request = nullptr;
     context.o6 = O6Handle{};
     context.master_activated = false;
     context.thread_ready.store(false);
@@ -593,9 +816,12 @@ void KaixuanCanSystem::close_ethercat()
     configured_ = false;
     activated_ = false;
   }
+  // Independent of KAIXUAN_SHUTDOWN_LOG. Both cyclic threads have joined and
+  // every master has been released before any trace filesystem operation.
+  for (auto & context : masters_) {dump_dc_reference_trace(context);}
   // ROS/recorder may already have stopped. Only now, after both masters have
   // been released, serialize/fsync the shutdown evidence; never delay stopping
-  // the cyclic threads on disk I/O. No new stop command or receive is added.
+  // the cyclic threads on disk I/O. Arm disable traffic has already completed.
   const char * path = std::getenv("KAIXUAN_SHUTDOWN_LOG");
   if (!path || !*path || std::none_of(closing.begin(), closing.end(),
       [](const auto & trace) {return trace.present;})) {return;}
@@ -662,6 +888,60 @@ void KaixuanCanSystem::close_ethercat()
   if (!ok) {RCLCPP_ERROR(logger_, "Failed to persist hardware shutdown evidence: %s", path);}
 }
 
+void KaixuanCanSystem::dump_dc_reference_trace(MasterContext & context)
+{
+  if (!context.dc_trace || context.dc_trace_dump_attempted) {return;}
+  context.dc_trace_dump_attempted = true;
+  int fd = -1;
+  try {
+    std::filesystem::create_directories(context.dc_trace_directory);
+    const auto filename = (std::filesystem::path(context.dc_trace_directory) /
+      ("dc-reference-master" + std::to_string(context.master_id) + ".csv")).string();
+    // Never truncate another run's evidence, including through an existing symlink.
+    fd = ::open(filename.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (fd < 0) {
+      RCLCPP_ERROR(logger_, "Cannot exclusively create DC trace %s: %s", filename.c_str(), std::strerror(errno));
+      return;
+    }
+    std::ostringstream output;
+    output.imbue(std::locale::classic());
+    const auto & config = context.dc_follower_config;
+    output << "# follower_proportional_gain=" << config.proportional_gain << '\n'
+           << "# follower_integral_gain=" << config.integral_gain << '\n'
+           << "# follower_filter_alpha=" << config.filter_alpha << '\n'
+           << "# follower_fine_entry_filtered_ns=" << config.fine_entry_filtered_ns << '\n'
+           << "# follower_bounded_handoff=" << config.bumpless_fine_entry << '\n';
+    context.dc_trace->write_csv(output, context.master_id);
+    const auto text = output.str();
+    bool ok = output.good();
+    std::size_t offset = 0;
+    while (ok && offset < text.size()) {
+      const auto written = ::write(fd, text.data() + offset, text.size() - offset);
+      if (written < 0 && errno == EINTR) {continue;}
+      if (written <= 0) {ok = false; break;}
+      offset += static_cast<std::size_t>(written);
+    }
+    if (::fsync(fd) != 0) {ok = false;}
+    if (::close(fd) != 0) {ok = false;}
+    fd = -1;
+    const int directory_fd = ::open(context.dc_trace_directory.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (directory_fd >= 0) {
+      if (::fsync(directory_fd) != 0) {ok = false;}
+      ::close(directory_fd);
+    } else {ok = false;}
+    if (ok) {
+      RCLCPP_INFO(logger_, "DC reference trace saved: %s (%zu rows; frozen=%d; first_failure=%lu)",
+        filename.c_str(), context.dc_trace->size(), context.dc_trace->frozen(),
+        static_cast<unsigned long>(context.dc_trace->first_failure_cycle()));
+    } else {
+      RCLCPP_ERROR(logger_, "DC reference trace write was incomplete: %s", filename.c_str());
+    }
+  } catch (const std::exception & exception) {
+    if (fd >= 0) {::close(fd);}
+    RCLCPP_ERROR(logger_, "DC reference trace export failed after master release: %s", exception.what());
+  }
+}
+
 bool KaixuanCanSystem::configure_master(MasterContext & context)
 {
   context.master = ecrt_request_master(context.master_id);
@@ -673,6 +953,11 @@ bool KaixuanCanSystem::configure_master(MasterContext & context)
     return false;
   }
 
+  if (ecrt_master_set_send_interval(context.master, cycle_time_ns_ / 1000) != 0) {
+    RCLCPP_ERROR(logger_, "Cannot set Master%u send interval", context.master_id);
+    return false;
+  }
+
   ec_master_info_t master_info{};
   if (ecrt_master(context.master, &master_info) != 0)
   {
@@ -680,6 +965,10 @@ bool KaixuanCanSystem::configure_master(MasterContext & context)
     return false;
   }
   const bool has_o6 = master_info.slave_count == kMaxSlavesPerMaster;
+  if ((dc_reset_after_configuration_ || follow_reference_clock_) && has_o6) {
+    RCLCPP_ERROR(logger_, "DC clock experiments require seven axes without O6");
+    return false;
+  }
   const bool slave_count_valid =
     master_info.slave_count == kJointsPerArm || has_o6;
   if (!slave_count_valid)
@@ -720,6 +1009,67 @@ bool KaixuanCanSystem::configure_master(MasterContext & context)
     return false;
   }
 
+  context.dc_reset_request = nullptr;
+  if (dc_reset_after_configuration_) {
+    context.dc_reset_request = ecrt_slave_config_create_reg_request(context.slave_configs[0], 16);
+    if (context.dc_reset_request == nullptr) {
+      RCLCPP_ERROR(logger_, "Master%u cannot allocate the DC initialization request", context.master_id);
+      return false;
+    }
+  }
+  context.dc_reset = DcStartupReset{dc_reset_after_configuration_};
+  context.dc_reset_status = context.dc_reset.status();
+  context.dc_reset_action = {};
+  context.dc_reset_queue_rejected = false;
+  context.dc_follower_config = DcReferenceFollower::Config{};
+  if (follow_reference_clock_) {
+    // Faster bounded tracking of the observed reference-rate changes. Keep all
+    // quality/timeout/output guards; smooth acquisition handoff avoids PI windup.
+    context.dc_follower_config = reference_follow_config();
+    RCLCPP_INFO(logger_, "Master%u reference follower: Kp=%.6f Ki=%.9f alpha=%.8f fine_entry=%ldns bounded_handoff=%s",
+      context.master_id, context.dc_follower_config.proportional_gain,
+      context.dc_follower_config.integral_gain, context.dc_follower_config.filter_alpha,
+      context.dc_follower_config.fine_entry_filtered_ns,
+      context.dc_follower_config.bumpless_fine_entry ? "true" : "false");
+  }
+  context.dc_follower = DcReferenceFollower{context.dc_follower_config};
+  context.dc_follower_status = context.dc_follower.status();
+  context.reference_sample_pending = context.follower_schedule_failed = false;
+  context.follower_getter_failed = false;
+  context.follower_getter_consecutive_errors = 0;
+  context.reference_sample_virtual_ns = context.reference_sample_mono_ns = 0;
+  context.reference_sample_cycle = context.reference_getter_retry_cycle = 0;
+  context.reference_getter_errors = context.follower_skipped_periods = 0;
+  context.follower_last_ref32 = 0;
+  context.follower_failure_cycle = context.follower_reject_cycle = 0;
+  context.follower_failure_residual_ns = context.follower_reject_residual_ns = 0;
+  context.follower_reject_reason = 0;
+  context.follower_ref_received_cycle = context.follower_calibration_cycle = 0;
+  context.follower_calibration_delta_ns = 0;
+  context.dc_trace.reset();
+  context.dc_trace_directory.clear();
+  context.dc_trace_dump_attempted = false;
+  context.reference_sample_raw = {};
+  context.dc_trace_row = {};
+  const char * dc_trace_directory = std::getenv("KAIXUAN_DC_TRACE_DIR");
+  if (follow_reference_clock_ && dc_trace_directory && *dc_trace_directory) {
+    try {
+      context.dc_trace_directory = dc_trace_directory;
+      context.dc_trace = std::make_unique<DcReferenceTraceRing>();
+      RCLCPP_INFO(logger_, "Master%u reference trace allocated/touched: %zu rows, %zu bytes; active trace adds 3 bracket + 2 getter clock reads/cycle",
+        context.master_id, DcReferenceTraceRing::kCapacity, sizeof(DcReferenceTraceRing));
+    } catch (const std::exception & exception) {
+      RCLCPP_ERROR(logger_, "Cannot allocate requested DC reference trace: %s", exception.what());
+      return false;
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(io_mutex_);
+    diagnostic_snapshots_[context.master_id].dc_reset_ready = context.dc_reset_status.ready;
+    diagnostic_snapshots_[context.master_id].dc_follower_ready = !follow_reference_clock_;
+    diagnostic_snapshots_[context.master_id].dc_follower_config = context.dc_follower_config;
+  }
+
   if (ecrt_master_activate(context.master) != 0)
   {
     RCLCPP_ERROR(logger_, "Failed to activate Master%u", context.master_id);
@@ -750,6 +1100,21 @@ bool KaixuanCanSystem::configure_master(MasterContext & context)
   context.max_probe_work_ns = 0;
   context.loop_exit_ns = 0;
   context.final_receive_ns = 0;
+  context.startup_guard.reset();
+  context.dc_monitor_pending = false;
+  context.dc_sample_updated = false;
+  context.dc_difference_ns = UINT32_MAX;
+  context.timing_max_ns = {};
+  context.timing_window_max_ns = {};
+  context.timing_completed_max_ns = {};
+  context.timing_window_start_ns = context.timing_window_cycles = 0;
+  context.timing_completed_start_ns = context.timing_completed_end_ns = context.timing_completed_cycles = 0;
+  context.timing_mutex_wait_ns = context.slow_send_cycles = context.last_slow_send_ns = 0;
+  context.sync_errors = context.schedule_rebases = 0;
+  context.reference_sync_attempts = context.reference_sync_queued = context.last_reference_sync_cycle = 0;
+  context.timing_reference_sync_cycles = context.timing_completed_reference_sync_cycles = 0;
+  context.dc_pending_queue_cycle = context.dc_sample_queue_cycle = 0;
+  context.dc_pending_reference_age_cycles = context.dc_sample_reference_age_cycles = UINT64_MAX;
   context.cyclic_thread = std::thread(
     [this, &context]() {cyclic_loop(context);});
 
@@ -808,6 +1173,50 @@ bool KaixuanCanSystem::configure_axis(
   RCLCPP_INFO(logger_, "Drive identity master=%u slave=%u vendor=%u product=%u revision=%u serial=%u",
     context.master_id, slave_pos, slave_info.vendor_id, slave_info.product_code,
     slave_info.revision_number, slave_info.serial_number);
+  auto & axis = context.axes[slave_pos];
+  axis = AxisHandle{};
+  axis.joint_index = joint_index;
+  axis.slave_pos = slave_pos;
+  const bool cst_axis = cst_mode_ && cst_selected_[joint_index];
+  const auto read_parameter = [&](std::uint16_t index, std::uint16_t & result) {
+    std::uint8_t bytes[2]{};
+    std::size_t size = 0;
+    std::uint32_t abort = 0;
+    if (ecrt_master_sdo_upload(context.master, slave_pos, index, 0,
+        bytes, sizeof(bytes), &size, &abort) != 0 || size != sizeof(bytes))
+    {
+      RCLCPP_ERROR(logger_, "Cannot read unit parameter master=%u slave=%u index=%04x abort=%08x",
+        context.master_id, slave_pos, index, abort);
+      return false;
+    }
+    result = EC_READ_U16(bytes);
+    return true;
+  };
+  std::uint16_t pn083{}, pn085{}, pn088{};
+  if (!read_parameter(0x2083, pn083) || !read_parameter(0x2085, pn085) ||
+    !read_parameter(0x2088, pn088) || pn083 > 1 || pn088 > 1 || pn085 == 0)
+  {
+    RCLCPP_ERROR(logger_, "Unsupported effort/velocity scaling on master=%u slave=%u", context.master_id, slave_pos);
+    return false;
+  }
+  axis.torque_feedback_unit = pn083;
+  axis.rated_current_a = pn085 * 0.01;
+  axis.velocity_counts_per_second = pn088 == 0;
+  if (cst_axis) {
+    std::uint8_t bytes[4]{};
+    std::size_t size = 0;
+    std::uint32_t abort = 0;
+    if (ecrt_master_sdo_upload(context.master, slave_pos, 0x6502, 0,
+        bytes, sizeof(bytes), &size, &abort) != 0 || size != sizeof(bytes) ||
+        (EC_READ_U32(bytes) & (1U << 9)) == 0)
+    {
+      RCLCPP_ERROR(logger_, "CST support not confirmed on master=%u slave=%u", context.master_id, slave_pos);
+      return false;
+    }
+    RCLCPP_INFO(logger_, "CST %s: command=%.6f raw/Nm, feedback Pn083=%u, rated_current=%.2fA, limit=%.3fNm",
+      info_.joints[joint_index].name.c_str(), torque_parameters_[joint_index].command_units_per_nm,
+      pn083, axis.rated_current_a, torque_parameters_[joint_index].limit_nm);
+  }
   // Read-only configuration evidence before this master is activated. Object
   // indices and uint16/subindex 0 match src/normal/pid.bash. Never run in RT.
   for (const std::uint16_t index : {0x2033, 0x2034, 0x2035, 0x2063, 0x2064, 0x2065}) {
@@ -854,7 +1263,7 @@ bool KaixuanCanSystem::configure_axis(
   }
 
   // KGU exposes configurable CoE PDOs. Select its documented CiA402 layout.
-  if (ecrt_slave_config_pdos(slave_config, EC_END, kSyncManagers) != 0)
+  if (ecrt_slave_config_pdos(slave_config, EC_END, cst_axis ? kCstSyncManagers : kSyncManagers) != 0)
   {
     RCLCPP_ERROR(
       logger_, "PDO assignment failed for Master%u Slave%u",
@@ -872,10 +1281,12 @@ bool KaixuanCanSystem::configure_axis(
     return false;
   }
 
-  auto & axis = context.axes[slave_pos];
-  axis = AxisHandle{};
-  axis.joint_index = joint_index;
-  axis.slave_pos = slave_pos;
+  if (cst_axis && (ecrt_slave_config_sdo16(slave_config, 0x6071, 0, 0) != 0 ||
+      ecrt_slave_config_sdo8(slave_config, 0x6060, 0, 10) != 0))
+  {
+    RCLCPP_ERROR(logger_, "CST startup configuration failed");
+    return false;
+  }
 
   auto register_entry =
     [this, &context, slave_config, slave_pos](
@@ -901,7 +1312,9 @@ bool KaixuanCanSystem::configure_axis(
     register_entry(axis.position_actual_value, 0x6064, 0) &&
     register_entry(axis.velocity_actual_value, 0x606C, 0) &&
     register_entry(axis.torque_actual_value, 0x6077, 0) &&
-    register_entry(axis.error_code, 0x603F, 0);
+    register_entry(axis.error_code, 0x603F, 0) &&
+    (!cst_axis || (register_entry(axis.target_torque, 0x6071, 0) &&
+    register_entry(axis.mode_display, 0x6061, 0)));
 }
 
 bool KaixuanCanSystem::configure_o6(MasterContext & context)
@@ -1028,6 +1441,7 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
   clock_gettime(CLOCK_MONOTONIC, &wake_time);
   add_ns(wake_time, cycle_time_ns_);
   context.thread_ready.store(true);
+  std::uint64_t virtual_schedule_ns = 0;
 
   while (context.running.load())
   {
@@ -1061,14 +1475,54 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
     }
     context.last_cycle_time_ns = cycle_time;
     ++context.cycle_count;
+    const bool trace_active = context.dc_trace && !context.dc_trace->frozen();
+    if (trace_active) {
+      auto & row = context.dc_trace_row;
+      row = {};
+      row.cycle = context.cycle_count;
+      row.wake_mono_ns = cycle_time;
+      row.scheduled_mono_ns = scheduled_time;
+      row.previous_send_cycle = context.reference_sample_cycle;
+      row.previous_send_mono_ns = context.reference_sample_mono_ns;
+      row.previous_send_virtual_ns = context.reference_sample_virtual_ns;
+      row.previous_raw = context.reference_sample_raw;
+      if (context.reference_sample_pending) {row.flags |= DcReferenceTraceRing::PreviousSendQueued;}
+      if (row.previous_raw.valid) {row.flags |= DcReferenceTraceRing::PreviousRawValid;}
+    }
 
-    ecrt_master_application_time(context.master, scheduled_time);
+    // Freeze B for the entire current cycle, even though the follower below
+    // computes B for the NEXT deadline before PDO exchange.
+    const auto cycle_base_ns = follow_reference_clock_ ? context.dc_follower_status.base_ns : 0;
+    const auto application_time = static_cast<std::uint64_t>(
+      static_cast<std::int64_t>(cycle_time) - cycle_base_ns);
+    if (trace_active) {
+      context.dc_trace_row.base_entry_ns = cycle_base_ns;
+      context.dc_trace_row.application_ns = application_time;
+    }
+    if (follow_reference_clock_ && context.cycle_count == 1) {
+      // IgH anchors SYNC0 to this first application time, not the earlier
+      // planned wakeup. Keep the virtual grid on exactly that same anchor.
+      virtual_schedule_ns = application_time;
+    }
+    ecrt_master_application_time(context.master, application_time);
     ecrt_master_receive(context.master);
     context.final_receive_ns = steady_now_ns();
     ecrt_domain_process(context.domain);
     ec_domain_state_t domain_state{};
     ecrt_domain_state(context.domain, &domain_state);
+    context.dc_sample_updated = false;
+    if (context.dc_monitor_pending) {
+      context.dc_difference_ns = ecrt_master_sync_monitor_process(context.master);
+      context.dc_sample_queue_cycle = context.dc_pending_queue_cycle;
+      context.dc_sample_reference_age_cycles = context.dc_pending_reference_age_cycles;
+      context.dc_sample_updated = true;
+      context.dc_monitor_pending = false;
+    }
+    poll_dc_startup_reset(context, domain_state, cycle_time);
+    poll_dc_reference_follower(context, domain_state, cycle_time);
+    const auto receive_end_ns = steady_now_ns();
     exchange_process_data(context, domain_state);
+    const auto exchange_end_ns = steady_now_ns();
     if (context.o6.configured)
     {
       ec_slave_config_state_t slave_state{};
@@ -1081,28 +1535,191 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
       poll_bus_diagnostics(context, probe_start);
       context.max_probe_work_ns = std::max(context.max_probe_work_ns, steady_now_ns() - probe_start);
     }
-    ecrt_master_sync_reference_clock(context.master);
-    ecrt_master_sync_slave_clocks(context.master);
+    // Keep application_time at the fixed cycle entry point for DC phase setup.
+    // Refresh the separate reference-clock correction after variable cycle work.
+    const auto sync_sample_ns = steady_now_ns();
+    // Only the host-to-reference correction is decimated. PDO and slave-to-slave
+    // FRMW synchronization below remain on every cycle (as in IgH dc_rtai).
+    const bool reference_sync_due = !follow_reference_clock_ &&
+      (context.cycle_count - 1) % reference_sync_cycles_ == 0;
+    int sync_result = 0;
+    if (reference_sync_due) {
+      ++context.reference_sync_attempts;
+      sync_result = fresh_reference_time_ ?
+        ecrt_master_sync_reference_clock_to(context.master, sync_sample_ns) :
+        ecrt_master_sync_reference_clock(context.master);
+      context.sync_errors += sync_result != 0;
+      if (sync_result == 0) {
+        ++context.reference_sync_queued;
+        ++context.timing_reference_sync_cycles;
+        context.last_reference_sync_cycle = context.cycle_count;
+      }
+    }
+    const auto sync_end_ns = steady_now_ns();
+    const int slave_sync_result = ecrt_master_sync_slave_clocks(context.master);
+    context.sync_errors += slave_sync_result != 0;
+    const auto dc_period_cycles = context.startup_guard.latched ? 100U : 20U;
+    if (context.cycle_count % dc_period_cycles == 0) {
+      if (ecrt_master_sync_monitor_queue(context.master) == 0) {
+        context.dc_monitor_pending = true;
+        context.dc_pending_queue_cycle = context.cycle_count;
+        context.dc_pending_reference_age_cycles = context.last_reference_sync_cycle == 0 ? UINT64_MAX :
+          context.cycle_count - context.last_reference_sync_cycle;
+      } else {
+        context.dc_difference_ns = UINT32_MAX;
+        context.startup_guard.invalidate_dc();
+      }
+    }
     ecrt_domain_queue(context.domain);
     ++context.queue_count;
+    if (trace_active) {
+      // Diagnostics only. Keep the original control timestamp below immediately
+      // before ecrt_master_send; do not substitute the midpoint of this bracket.
+      timespec mono_before{}, raw{}, mono_after{};
+      const int before_result = clock_gettime(CLOCK_MONOTONIC, &mono_before);
+      const int raw_result = clock_gettime(CLOCK_MONOTONIC_RAW, &raw);
+      const int after_result = clock_gettime(CLOCK_MONOTONIC, &mono_after);
+      auto & bracket = context.dc_trace_row.current_raw;
+      bracket.mono_before_ns = timespec_to_ns(mono_before);
+      bracket.raw_ns = timespec_to_ns(raw);
+      bracket.mono_after_ns = timespec_to_ns(mono_after);
+      bracket.valid = before_result == 0 && raw_result == 0 && after_result == 0 &&
+        bracket.mono_after_ns >= bracket.mono_before_ns;
+      if (bracket.valid) {context.dc_trace_row.flags |= DcReferenceTraceRing::CurrentRawValid;}
+      else {context.dc_trace_row.flags |= DcReferenceTraceRing::ClockReadError;}
+    }
     const auto send_start_ns = steady_now_ns();
     context.previous_send_result = ecrt_master_send(context.master);
-    context.previous_send_duration_ns = steady_now_ns() - send_start_ns;
+    const auto send_end_ns = steady_now_ns();
+    if (follow_reference_clock_) {
+      context.reference_sample_pending = slave_sync_result == 0 && context.previous_send_result == 0;
+      context.reference_sample_cycle = context.cycle_count;
+      context.reference_sample_mono_ns = send_start_ns;
+      context.reference_sample_virtual_ns = static_cast<std::uint64_t>(
+        static_cast<std::int64_t>(send_start_ns) - cycle_base_ns);
+      if (trace_active) {context.reference_sample_raw = context.dc_trace_row.current_raw;}
+    }
+    context.previous_send_duration_ns = send_end_ns - send_start_ns;
     ++context.send_count;
     context.last_send_time_ns = steady_now_ns();
+    const std::array<std::uint64_t, 9> timing = {
+      receive_end_ns - cycle_time, context.timing_mutex_wait_ns,
+      exchange_end_ns - receive_end_ns,
+      reference_sync_due ? sync_sample_ns - cycle_time : 0,
+      reference_sync_due ? sync_end_ns - sync_sample_ns : 0,
+      reference_sync_due && sync_result == 0 ?
+      send_start_ns - (fresh_reference_time_ ? sync_sample_ns : cycle_time) : 0,
+      send_start_ns - cycle_time, send_end_ns - send_start_ns, send_end_ns - cycle_time};
+    if (context.timing_window_start_ns == 0) {context.timing_window_start_ns = cycle_time;}
+    ++context.timing_window_cycles;
+    for (std::size_t i = 0; i < timing.size(); ++i) {
+      context.timing_max_ns[i] = std::max(context.timing_max_ns[i], timing[i]);
+      context.timing_window_max_ns[i] = std::max(context.timing_window_max_ns[i], timing[i]);
+    }
+    if (timing[6] > 100000) {
+      ++context.slow_send_cycles;
+      context.last_slow_send_ns = cycle_time;
+    }
+    if (send_end_ns - context.timing_window_start_ns >= 1000000000ULL) {
+      context.timing_completed_max_ns = context.timing_window_max_ns;
+      context.timing_completed_start_ns = context.timing_window_start_ns;
+      context.timing_completed_end_ns = send_end_ns;
+      context.timing_completed_cycles = context.timing_window_cycles;
+      context.timing_completed_reference_sync_cycles = context.timing_reference_sync_cycles;
+      context.timing_reference_sync_cycles = 0;
+      context.timing_window_max_ns = {};
+      context.timing_window_start_ns = send_end_ns;
+      context.timing_window_cycles = 0;
+    }
     if (domain_state.wc_state == EC_WC_COMPLETE)
     {
       context.last_complete_send_time_ns = context.last_send_time_ns;
     }
 
-    add_ns(wake_time, cycle_time_ns_);
     timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
-    if (timespec_to_ns(now) >
-      timespec_to_ns(wake_time) + static_cast<std::uint64_t>(cycle_time_ns_))
-    {
-      wake_time = now;
+    if (follow_reference_clock_) {
+      virtual_schedule_ns += static_cast<std::uint64_t>(cycle_time_ns_);
+      auto next_ns = static_cast<std::uint64_t>(static_cast<std::int64_t>(virtual_schedule_ns) +
+        context.dc_follower_status.base_ns);
+      const auto now_ns = timespec_to_ns(now);
+      if (next_ns <= now_ns) {
+        context.follower_schedule_failed = true;
+        if (context.follower_failure_cycle == 0) {context.follower_failure_cycle = context.cycle_count;}
+        ++context.schedule_rebases;
+        const auto skipped = (now_ns - next_ns) / static_cast<std::uint64_t>(cycle_time_ns_) + 1;
+        context.follower_skipped_periods += skipped;
+        const auto advance = skipped * static_cast<std::uint64_t>(cycle_time_ns_);
+        virtual_schedule_ns += advance;
+        next_ns += advance;
+      }
+      wake_time.tv_sec = static_cast<time_t>(next_ns / 1000000000ULL);
+      wake_time.tv_nsec = static_cast<long>(next_ns % 1000000000ULL);
+    } else {
       add_ns(wake_time, cycle_time_ns_);
+      if (timespec_to_ns(now) >
+        timespec_to_ns(wake_time) + static_cast<std::uint64_t>(cycle_time_ns_))
+      {
+        ++context.schedule_rebases;
+        wake_time = now;
+        add_ns(wake_time, cycle_time_ns_);
+      }
+    }
+    if (trace_active) {
+      auto & row = context.dc_trace_row;
+      const auto & follower = context.dc_follower_status;
+      row.base_after_ns = follower.base_ns;
+      row.measurement_ns = follower.measurement_error_ns;
+      row.residual_ns = follower.residual_ns;
+      row.filtered_ns = follower.filtered_error_ns;
+      row.frequency_ns_per_cycle = follower.frequency_ns_per_cycle;
+      row.correction_ns = follower.next_correction_ns;
+      row.sample_age_ns = follower.sample_age_ns;
+      row.last_valid_age_ns = follower.last_valid_age_ns;
+      row.quality = static_cast<std::uint32_t>(follower.quality);
+      row.failure = static_cast<std::uint32_t>(follower.failure);
+      row.rejection = static_cast<std::uint32_t>(follower.rejected_because);
+      row.bad_quality_samples = follower.bad_quality_samples;
+      row.first_failure_cycle = context.follower_failure_cycle;
+      row.working_counter = domain_state.working_counter;
+      row.wc_state = domain_state.wc_state;
+      row.receive_end_ns = receive_end_ns;
+      row.exchange_end_ns = exchange_end_ns;
+      row.mutex_wait_ns = context.timing_mutex_wait_ns;
+      row.send_before_ns = send_start_ns;
+      row.send_after_ns = send_end_ns;
+      row.slave_sync_result = slave_sync_result;
+      row.send_result = context.previous_send_result;
+      row.next_deadline_ns = timespec_to_ns(wake_time);
+      if (follower.sample_accepted) {row.flags |= DcReferenceTraceRing::SampleAccepted;}
+      if (follower.residual_available) {row.flags |= DcReferenceTraceRing::ResidualAvailable;}
+      if (follower.calibrated) {row.flags |= DcReferenceTraceRing::Calibrated;}
+      if (follower.locked) {row.flags |= DcReferenceTraceRing::Locked;}
+      if (follower.acquiring_phase) {row.flags |= DcReferenceTraceRing::Acquiring;}
+      if (follower.failed) {row.flags |= DcReferenceTraceRing::FollowerFailed;}
+      if (context.follower_getter_failed) {row.flags |= DcReferenceTraceRing::GetterFailed;}
+      if (context.follower_schedule_failed) {row.flags |= DcReferenceTraceRing::ScheduleFailed;}
+      if (context.startup_guard.latched) {row.flags |= DcReferenceTraceRing::StartupReady;}
+      bool all_cw6 = true, all_cw15 = true, all_disabled = true, all_enabled = true;
+      for (std::size_t i = 0; i < context.axes.size(); ++i) {
+        const auto & axis = context.axes[i];
+        const auto * data = context.domain_data;
+        row.control[i] = EC_READ_U16(data + axis.control_word);
+        row.status[i] = EC_READ_U16(data + axis.status_word);
+        row.error[i] = EC_READ_U16(data + axis.error_code);
+        const auto state = row.status[i] & 0x006f;
+        all_cw6 = all_cw6 && row.control[i] == 6;
+        all_cw15 = all_cw15 && row.control[i] == 15;
+        all_disabled = all_disabled && (state == 0x21 || state == 0x40) && row.error[i] == 0;
+        all_enabled = all_enabled && state == 0x27 && row.error[i] == 0;
+      }
+      if (all_cw6) {row.flags |= DcReferenceTraceRing::AllControl6;}
+      if (all_cw15) {row.flags |= DcReferenceTraceRing::AllControl15;}
+      if (all_disabled) {row.flags |= DcReferenceTraceRing::AllDisabledFeedback;}
+      if (all_enabled) {row.flags |= DcReferenceTraceRing::AllEnabledFeedback;}
+      // Include the first failing cycle, then preserve it throughout shutdown.
+      context.dc_trace->push(row,
+        follower.failed || context.follower_getter_failed || context.follower_schedule_failed);
     }
   }
   context.loop_exit_ns = steady_now_ns();
@@ -1115,8 +1732,23 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
 void KaixuanCanSystem::exchange_process_data(
   MasterContext & context, const ec_domain_state_t & domain_state)
 {
+  const auto mutex_start_ns = steady_now_ns();
   std::lock_guard<std::mutex> lock(io_mutex_);
+  context.timing_mutex_wait_ns = steady_now_ns() - mutex_start_ns;
   auto & snapshot = diagnostic_snapshots_[context.master_id];
+  snapshot.timing_max_ns = context.timing_max_ns;
+  snapshot.timing_window_max_ns = context.timing_completed_max_ns;
+  snapshot.timing_window_start_ns = context.timing_completed_start_ns;
+  snapshot.timing_window_end_ns = context.timing_completed_end_ns;
+  snapshot.timing_window_cycles = context.timing_completed_cycles;
+  snapshot.slow_send_cycles = context.slow_send_cycles;
+  snapshot.last_slow_send_ns = context.last_slow_send_ns;
+  snapshot.sync_errors = context.sync_errors;
+  snapshot.schedule_rebases = context.schedule_rebases;
+  snapshot.reference_sync_attempts = context.reference_sync_attempts;
+  snapshot.reference_sync_queued = context.reference_sync_queued;
+  snapshot.last_reference_sync_cycle = context.last_reference_sync_cycle;
+  snapshot.timing_reference_sync_cycles = context.timing_completed_reference_sync_cycles;
   snapshot.sample_steady_ns = context.last_cycle_time_ns;
   snapshot.cycle_count = context.cycle_count;
   snapshot.max_probe_work_ns = context.max_probe_work_ns;
@@ -1129,6 +1761,47 @@ void KaixuanCanSystem::exchange_process_data(
   const int master_state_result = ecrt_master_state(context.master, &master_state);
   context.probe_bus_ready = master_state_result == 0 && master_state.al_states == 8 &&
     master_state.link_up && domain_state.wc_state == EC_WC_COMPLETE;
+  const bool follower_ready = !follow_reference_clock_ ||
+    (context.dc_follower_status.locked && !context.dc_follower_status.failed &&
+    !context.follower_schedule_failed && !context.follower_getter_failed);
+  const bool enable_allowed = context.startup_guard.step(
+    activated_ && context.dc_reset_status.ready && follower_ready, all_joint_positions_ready(),
+    context.probe_bus_ready && master_state.slaves_responding ==
+      (context.o6.configured ? kMaxSlavesPerMaster : kJointsPerArm),
+    context.dc_sample_updated, context.dc_difference_ns);
+  snapshot.startup_ready = context.startup_guard.latched;
+  snapshot.dc_reset_ready = context.dc_reset_status.ready;
+  snapshot.dc_reset_failed = context.dc_reset_status.failed;
+  snapshot.dc_reset_phase = static_cast<unsigned int>(context.dc_reset_status.phase);
+  snapshot.dc_reset_error = static_cast<unsigned int>(context.dc_reset_status.error);
+  snapshot.dc_reset_original_bandwidth = context.dc_reset_status.speed_counter_start;
+  snapshot.dc_reset_original_filter = context.dc_reset_status.speed_filter;
+  snapshot.dc_reset_observation_start_ns = context.dc_reset_status.observation_start_ns;
+  snapshot.dc_follower_config = context.dc_follower_config;
+  snapshot.dc_follower = context.dc_follower_status;
+  snapshot.dc_follower_ready = follower_ready;
+  snapshot.dc_follower_failed = follow_reference_clock_ &&
+    (context.dc_follower_status.failed || context.follower_schedule_failed || context.follower_getter_failed);
+  snapshot.follower_schedule_failed = context.follower_schedule_failed;
+  snapshot.follower_getter_failed = context.follower_getter_failed;
+  snapshot.follower_getter_consecutive_errors = context.follower_getter_consecutive_errors;
+  snapshot.reference_getter_errors = context.reference_getter_errors;
+  snapshot.follower_skipped_periods = context.follower_skipped_periods;
+  snapshot.reference_sample_cycle = context.reference_sample_cycle;
+  snapshot.follower_last_ref32 = context.follower_last_ref32;
+  snapshot.follower_failure_cycle = context.follower_failure_cycle;
+  snapshot.follower_reject_cycle = context.follower_reject_cycle;
+  snapshot.follower_failure_residual_ns = context.follower_failure_residual_ns;
+  snapshot.follower_reject_residual_ns = context.follower_reject_residual_ns;
+  snapshot.follower_reject_reason = context.follower_reject_reason;
+  snapshot.follower_ref_received_cycle = context.follower_ref_received_cycle;
+  snapshot.follower_calibration_cycle = context.follower_calibration_cycle;
+  snapshot.follower_calibration_delta_ns = context.follower_calibration_delta_ns;
+  snapshot.startup_bus_cycles = context.startup_guard.bus_cycles;
+  snapshot.startup_dc_samples = context.startup_guard.dc_good_samples;
+  snapshot.dc_difference_ns = context.dc_difference_ns;
+  snapshot.dc_sample_queue_cycle = context.dc_sample_queue_cycle;
+  snapshot.dc_sample_reference_age_cycles = context.dc_sample_reference_age_cycles;
   CycleFrame frame{};
   frame[0] = context.cycle_count;
   frame[1] = context.last_cycle_time_ns;
@@ -1144,50 +1817,94 @@ void KaixuanCanSystem::exchange_process_data(
   frame[11] = master_state.slaves_responding;
   frame[12] = master_state.link_up;
   frame[13] = master_state_result;
-  for (const auto & axis : context.axes)
+  for (auto & axis : context.axes)
   {
     const auto joint = axis.joint_index;
     const auto * data = context.domain_data;
     const auto raw_counts = EC_READ_S32(data + axis.position_actual_value);
     const auto raw_velocity = EC_READ_S32(data + axis.velocity_actual_value);
     const auto status_word = EC_READ_U16(data + axis.status_word);
+    const auto error_code = EC_READ_U16(data + axis.error_code);
+    const bool cst_axis = cst_mode_ && cst_selected_[joint];
+    const int actual_mode = cst_axis ? EC_READ_S8(data + axis.mode_display) : 8;
 
-    const bool feedback_ready = status_word != 0 || raw_counts != 0;
+    const bool feedback_ready = domain_state.wc_state == EC_WC_COMPLETE &&
+      (status_word != 0 || raw_counts != 0);
     if (feedback_ready)
     {
+      actual_counts_[joint] = raw_counts;
       const auto actual_position = joint_counts_to_radians(raw_counts, joint);
-      hw_positions_[joint] = actual_position;
-      hw_velocities_[joint] =
+      measured_positions_[joint] = actual_position;
+      measured_velocities_[joint] = axis.velocity_counts_per_second ?
+        joint_direction_[joint] * raw_velocity * 2.0 * kPi /
+        (kMotorCountsPerRevolution * joint_gear_ratio_[joint]) :
         motor_rpm_to_joint_radians_per_second(raw_velocity, joint);
+      measured_efforts_[joint] = torque_parameters_[joint].feedback_nm(
+        EC_READ_S16(data + axis.torque_actual_value), joint_direction_[joint],
+        axis.torque_feedback_unit, axis.rated_current_a);
       if (!position_initialized_[joint])
       {
         position_initialized_[joint] = true;
-        hw_commands_[joint] = actual_position;
+        if (!cst_mode_) {hw_commands_[joint] = actual_position;}
         commanded_counts_[joint] = raw_counts;
       }
+      if (cst_mode_) {commanded_counts_[joint] = raw_counts;}
     }
 
-    EC_WRITE_S8(data + axis.mode_of_operation, 8);
+    EC_WRITE_S8(data + axis.mode_of_operation, cst_axis ? 10 : 8);
     if (position_initialized_[joint])
     {
       EC_WRITE_S32(data + axis.target_position, commanded_counts_[joint]);
     }
+    bool axis_enable_allowed = enable_allowed && !cst_mode_;
+    TorqueSafety::Output torque_output;
+    if (cst_axis) {
+      TorqueSafety::Input input;
+      input.requested = activated_ && effort_claimed_[joint];
+      input.startup_ready = enable_allowed;
+      input.bus_ready = context.probe_bus_ready && follower_ready && feedback_ready;
+      const auto now_ns = steady_now_ns();
+      input.write_fresh = effort_write_ns_ != 0 && now_ns >= effort_write_ns_ &&
+        now_ns - effort_write_ns_ <= effort_write_timeout_ns_;
+      input.mode = actual_mode;
+      input.status = status_word;
+      input.error = error_code;
+      input.command = requested_efforts_[joint];
+      input.position = measured_positions_[joint];
+      input.unwrapped_position = JointAngleMapping{
+        joint_gear_ratio_[joint], joint_offset_deg_[joint], joint_direction_[joint]}.
+        unwrapped_position(raw_counts);
+      input.velocity = measured_velocities_[joint];
+      input.period_s = cycle_time_ns_ * 1e-9;
+      torque_output = torque_safety_[joint].step(input, torque_parameters_[joint]);
+      axis_enable_allowed = torque_output.enable;
+      EC_WRITE_S16(data + axis.target_torque, torque_parameters_[joint].to_raw(
+        torque_output.effort_nm, joint_direction_[joint]));
+    }
     std::uint16_t control_word = EC_READ_U16(data + axis.control_word);
-    switch (decode_cia402_state(status_word))
+    if (!axis_enable_allowed) {
+      control_word = 0x0006;
+      axis.enable_settle.reset();
+    } else switch (decode_cia402_state(status_word))
     {
       case Cia402State::kNotReadyToSwitchOn:
       case Cia402State::kSwitchOnDisabled:
         control_word = 0x0006;
+        axis.enable_settle.reset();
         break;
       case Cia402State::kReadyToSwitchOn:
         control_word = 0x0007;
+        axis.enable_settle.reset();
         break;
       case Cia402State::kSwitchedOn:
+        control_word = axis.enable_settle.switched_on_controlword();
+        break;
       case Cia402State::kOperationEnabled:
         control_word = 0x000F;
         break;
       case Cia402State::kFault:
         control_word = 0x0080;
+        axis.enable_settle.reset();
         break;
       case Cia402State::kQuickStopActive:
       case Cia402State::kFaultReactionActive:
@@ -1204,16 +1921,24 @@ void KaixuanCanSystem::exchange_process_data(
     diagnostic.target_counts = EC_READ_S32(data + axis.target_position);
     diagnostic.velocity_raw = raw_velocity;
     diagnostic.torque_raw = EC_READ_S16(data + axis.torque_actual_value);
+    diagnostic.effort_nm = measured_efforts_[joint];
+    diagnostic.commanded_effort_nm = torque_output.effort_nm;
+    diagnostic.target_torque_raw = cst_axis ? EC_READ_S16(data + axis.target_torque) : 0;
+    diagnostic.actual_mode = actual_mode;
+    diagnostic.effort_claimed = effort_claimed_[joint];
+    diagnostic.torque_armed = torque_safety_[joint].armed;
+    diagnostic.torque_guard_fault = static_cast<unsigned>(torque_safety_[joint].fault);
+    diagnostic.torque_fault_snapshot = torque_safety_[joint].fault_snapshot;
     diagnostic.status_word = status_word;
     diagnostic.control_word = control_word;
-    diagnostic.error_code = EC_READ_U16(data + axis.error_code);
+    diagnostic.error_code = error_code;
     if (diagnostic.error_code != 0) {
       diagnostic.last_error_code = diagnostic.error_code;
     }
     diagnostic.fault_cycles += (status_word & 0x0008U) != 0;
-    diagnostic.position_rad = hw_positions_[joint];
-    diagnostic.velocity_rad_s = hw_velocities_[joint];
-    diagnostic.following_error = domain_state.wc_state == EC_WC_COMPLETE &&
+    diagnostic.position_rad = measured_positions_[joint];
+    diagnostic.velocity_rad_s = measured_velocities_[joint];
+    diagnostic.following_error = !cst_axis && domain_state.wc_state == EC_WC_COMPLETE &&
       (status_word & 0x006F) == 0x0027 &&
       std::abs(static_cast<std::int64_t>(diagnostic.target_counts) - raw_counts) >
       static_cast<double>(kMotorCountsPerRevolution) * joint_gear_ratio_[joint] / 360.0;
@@ -1229,6 +1954,27 @@ void KaixuanCanSystem::exchange_process_data(
       old_control, diagnostic.control_word, old_error, diagnostic.error_code,
       diagnostic.following_error && !old_following_error);
     frame[offset + 8] = EC_READ_S8(data + axis.mode_of_operation);
+  }
+  if (cst_mode_ && stop_cst_group_on_fault_) {
+    if (latch_torque_group(torque_safety_, effort_claimed_)) {
+      for (auto & axis : context.axes) {
+        const auto joint = axis.joint_index;
+        if (!cst_selected_[joint] || !effort_claimed_[joint]) {continue;}
+        auto * data = context.domain_data;
+        auto & diagnostic = snapshot.axes[joint % kJointsPerArm];
+        const auto offset = kCaptureHeader + (joint % kJointsPerArm) * kCaptureAxisWidth;
+        frame[offset + 7] |= capture_transition(diagnostic.status_word, diagnostic.status_word,
+          diagnostic.control_word, 6, diagnostic.error_code, diagnostic.error_code, false);
+        EC_WRITE_S16(data + axis.target_torque, 0);
+        EC_WRITE_U16(data + axis.control_word, 6);
+        axis.enable_settle.reset();
+        diagnostic.commanded_effort_nm = 0;
+        diagnostic.target_torque_raw = 0;
+        diagnostic.control_word = 6;
+        diagnostic.torque_guard_fault = static_cast<unsigned>(torque_safety_[joint].fault);
+        frame[offset + 5] = 6;
+      }
+    }
   }
   cycle_captures_[context.master_id].push(frame);
 }
@@ -1285,6 +2031,151 @@ void KaixuanCanSystem::publish_cycle_capture()
       message.data.insert(message.data.end(), frame.begin(), frame.end());
     }
     if (message.data.size() > 3) {cycle_publisher_->publish(message);}
+  }
+}
+
+void KaixuanCanSystem::poll_dc_reference_follower(
+  MasterContext & context, const ec_domain_state_t & domain_state, std::uint64_t now_ns)
+{
+  if (!follow_reference_clock_) {return;}
+  DcReferenceFollower::Input input;
+  input.cycle_id = context.cycle_count;
+  input.matched_send_cycle_id = context.reference_sample_cycle;
+  input.host_virtual_send_ns = context.reference_sample_virtual_ns;
+  input.host_mono_send_ns = context.reference_sample_mono_ns;
+  input.now_mono_ns = now_ns;
+  const bool fresh_bus = domain_state.wc_state == EC_WC_COMPLETE && context.probe_bus_ready;
+  input.drives_disabled = fresh_bus;
+  for (const auto & axis : context.axes) {
+    const auto * data = context.domain_data;
+    const auto state = EC_READ_U16(data + axis.status_word) & 0x006fU;
+    input.drives_disabled = input.drives_disabled &&
+      EC_READ_U16(data + axis.control_word) == 0x0006 &&
+      (state == 0x0021 || state == 0x0040) && EC_READ_U16(data + axis.error_code) == 0;
+  }
+  // Read the previous FRMW before this cycle requeues the shared datagram.
+  // Complete PDO WKC alone does not guarantee receipt of this other datagram.
+  if (context.reference_sample_pending && fresh_bus &&
+    !context.dc_follower_status.failed && !context.follower_schedule_failed && !context.follower_getter_failed &&
+    context.cycle_count >= context.reference_getter_retry_cycle)
+  {
+    const bool trace_getter = context.dc_trace && !context.dc_trace->frozen();
+    if (trace_getter) {
+      context.dc_trace_row.flags |= DcReferenceTraceRing::GetterCalled;
+      context.dc_trace_row.getter_before_ns = steady_now_ns();
+    }
+    const int getter_result = ecrt_master_reference_clock_time(context.master, &input.ref32);
+    if (trace_getter) {
+      context.dc_trace_row.getter_after_ns = steady_now_ns();
+      context.dc_trace_row.getter_result = getter_result;
+      context.dc_trace_row.ref32 = input.ref32;
+      if (getter_result == 0) {context.dc_trace_row.flags |= DcReferenceTraceRing::GetterSucceeded;}
+    }
+    input.valid = getter_result == 0;
+    if (!input.valid) {
+      ++context.reference_getter_errors;
+      if (++context.follower_getter_consecutive_errors >= 4) {
+        context.follower_getter_failed = true;
+        if (context.follower_failure_cycle == 0) {context.follower_failure_cycle = context.cycle_count;}
+      }
+      // Bound libethercat's error-path stderr while leaving recovery attempts
+      // inside the follower's 20 ms holdover window.
+      context.reference_getter_retry_cycle = context.cycle_count + 5;
+    } else {
+      context.follower_getter_consecutive_errors = 0;
+    }
+  }
+  context.reference_sample_pending = false;
+  context.dc_follower_status = context.dc_follower.step(input);
+  if (input.valid) {
+    context.follower_last_ref32 = input.ref32;
+    context.follower_ref_received_cycle = context.cycle_count;
+  }
+  const auto & status = context.dc_follower_status;
+  if (status.calibrated_this_step) {
+    context.follower_calibration_cycle = context.cycle_count;
+    context.follower_calibration_delta_ns = status.calibration_delta_ns;
+  }
+  if (input.valid && status.rejected_because != DcReferenceFollower::Reject::None) {
+    context.follower_reject_cycle = context.cycle_count;
+    context.follower_reject_residual_ns = status.residual_ns;
+    context.follower_reject_reason = static_cast<unsigned int>(status.rejected_because);
+  }
+  if (status.failed && context.follower_failure_cycle == 0) {
+    context.follower_failure_cycle = context.cycle_count;
+    context.follower_failure_residual_ns = status.residual_ns;
+  }
+}
+
+void KaixuanCanSystem::poll_dc_startup_reset(
+  MasterContext & context, const ec_domain_state_t & domain_state, std::uint64_t now_ns)
+{
+  if (!dc_reset_after_configuration_) {return;}
+  using Reset = DcStartupReset;
+  Reset::Input input;
+  input.now_ns = now_ns;
+  input.fresh_disabled = domain_state.wc_state == EC_WC_COMPLETE && context.probe_bus_ready;
+  for (const auto & axis : context.axes) {
+    const auto * data = context.domain_data;
+    const auto state = EC_READ_U16(data + axis.status_word) & 0x006fU;
+    input.fresh_disabled = input.fresh_disabled &&
+      EC_READ_U16(data + axis.control_word) == 0x0006 &&
+      (state == 0x0021 || state == 0x0040) && EC_READ_U16(data + axis.error_code) == 0;
+  }
+  if (context.dc_reset_action.kind != Reset::Kind::None) {
+    input.reply.token = context.dc_reset_action.token;
+    if (context.dc_reset_queue_rejected || context.dc_reset_request == nullptr) {
+      input.reply.state = Reset::RequestState::Rejected;
+    } else {
+      switch (ecrt_reg_request_state(context.dc_reset_request)) {
+        case EC_REQUEST_BUSY: input.reply.state = Reset::RequestState::Busy; break;
+        case EC_REQUEST_ERROR: input.reply.state = Reset::RequestState::Error; break;
+        case EC_REQUEST_SUCCESS:
+          input.reply.state = Reset::RequestState::Success;
+          input.reply.size = context.dc_reset_action.size;
+          std::copy_n(ecrt_reg_request_data(context.dc_reset_request), input.reply.size,
+            input.reply.bytes.begin());
+          break;
+        default: input.reply.state = Reset::RequestState::Rejected; break;
+      }
+    }
+  }
+  const auto output = context.dc_reset.step(input);
+  context.dc_reset_status = output.status;
+  if (output.discard_old_dc_samples) {
+    context.startup_guard.reset();
+    context.dc_monitor_pending = false;
+    context.dc_sample_updated = false;
+    context.dc_difference_ns = UINT32_MAX;
+    context.dc_pending_queue_cycle = context.dc_sample_queue_cycle = 0;
+    context.dc_pending_reference_age_cycles = context.dc_sample_reference_age_cycles = UINT64_MAX;
+  }
+  if (!output.status.pending) {
+    context.dc_reset_action = {};
+    context.dc_reset_queue_rejected = false;
+  }
+  if (output.action.kind != Reset::Kind::None) {
+    context.dc_reset_action = output.action;
+    context.dc_reset_queue_rejected = false;
+    // The state machine owns each request through its terminal reply. Also
+    // defend against accidental handle reuse without touching a BUSY buffer.
+    if (context.dc_reset_request == nullptr ||
+      ecrt_reg_request_state(context.dc_reset_request) == EC_REQUEST_BUSY)
+    {
+      context.dc_reset_queue_rejected = true;
+      return;
+    }
+    int result;
+    if (output.action.kind == Reset::Kind::Write) {
+      std::copy_n(output.action.bytes.begin(), output.action.size,
+        ecrt_reg_request_data(context.dc_reset_request));
+      result = ecrt_reg_request_write(context.dc_reset_request,
+        output.action.address, output.action.size);
+    } else {
+      result = ecrt_reg_request_read(context.dc_reset_request,
+        output.action.address, output.action.size);
+    }
+    context.dc_reset_queue_rejected = result != 0;
   }
 }
 
@@ -1385,6 +2276,10 @@ void KaixuanCanSystem::publish_diagnostics()
     bus.level = stale ? 3 : (snapshot.wc_state == EC_WC_COMPLETE ? 0 : 2);
     bus.message = stale ? "cyclic feedback stale" :
       (bus.level == 0 ? "working counter complete" : "working counter incomplete");
+    if (!stale && (snapshot.dc_follower_failed || snapshot.dc_reset_failed)) {
+      bus.level = 2;
+      bus.message = "DC clock qualification failed; drives disabled";
+    }
     add(bus, "sample_steady_ns", snapshot.sample_steady_ns);
     add(bus, "cycle_count", snapshot.cycle_count);
     add(bus, "working_counter", snapshot.working_counter);
@@ -1396,19 +2291,140 @@ void KaixuanCanSystem::publish_diagnostics()
     add(bus, "bus_diagnostics_enabled", bus_diagnostics_);
     add(bus, "bus_probe_dropped_records", bus_captures_[master].dropped());
     add(bus, "max_bus_probe_work_ns", snapshot.max_probe_work_ns);
+    add(bus, "startup_ready", snapshot.startup_ready);
+    add(bus, "stop_cst_group_on_fault", stop_cst_group_on_fault_);
+    add(bus, "dc_reset_after_configuration", dc_reset_after_configuration_);
+    add(bus, "dc_reset_ready", snapshot.dc_reset_ready);
+    add(bus, "dc_reset_failed", snapshot.dc_reset_failed);
+    add(bus, "dc_reset_phase", snapshot.dc_reset_phase);
+    add(bus, "dc_reset_error", snapshot.dc_reset_error);
+    add(bus, "dc_reset_original_bandwidth", snapshot.dc_reset_original_bandwidth);
+    add(bus, "dc_reset_original_filter", snapshot.dc_reset_original_filter);
+    add(bus, "dc_reset_observation_start_ns", snapshot.dc_reset_observation_start_ns);
+    add(bus, "dc_follow_reference_clock", follow_reference_clock_);
+    add(bus, "dc_follower_proportional_gain", snapshot.dc_follower_config.proportional_gain);
+    add(bus, "dc_follower_integral_gain", snapshot.dc_follower_config.integral_gain);
+    add(bus, "dc_follower_filter_alpha", snapshot.dc_follower_config.filter_alpha);
+    add(bus, "dc_follower_fine_entry_filtered_ns", snapshot.dc_follower_config.fine_entry_filtered_ns);
+    add(bus, "dc_follower_bounded_handoff", snapshot.dc_follower_config.bumpless_fine_entry);
+    add(bus, "dc_follower_ready", snapshot.dc_follower_ready);
+    add(bus, "dc_follower_failed", snapshot.dc_follower_failed);
+    add(bus, "dc_follower_locked", snapshot.dc_follower.locked);
+    add(bus, "dc_follower_calibrated", snapshot.dc_follower.calibrated);
+    add(bus, "dc_follower_acquiring_phase", snapshot.dc_follower.acquiring_phase);
+    add(bus, "dc_follower_initial_residual_ns", snapshot.dc_follower.initial_residual_ns);
+    add(bus, "dc_follower_acquisition_elapsed_ns", snapshot.dc_follower.acquisition_elapsed_ns);
+    add(bus, "dc_follower_coarse_good_samples", snapshot.dc_follower.coarse_good_samples);
+    add(bus, "dc_follower_baseline_restarts", snapshot.dc_follower.baseline_restarts);
+    add(bus, "dc_follower_sample_accepted", snapshot.dc_follower.sample_accepted);
+    add(bus, "dc_follower_residual_available", snapshot.dc_follower.residual_available);
+    add(bus, "dc_follower_calibration_cycle", snapshot.follower_calibration_cycle);
+    add(bus, "dc_follower_calibration_delta_ns", snapshot.follower_calibration_delta_ns);
+    add(bus, "dc_follower_error", static_cast<unsigned int>(snapshot.dc_follower.failure));
+    add(bus, "dc_follower_quality", static_cast<unsigned int>(snapshot.dc_follower.quality));
+    add(bus, "dc_follower_base_ns", snapshot.dc_follower.base_ns);
+    add(bus, "dc_follower_correction_ns", snapshot.dc_follower.next_correction_ns);
+    add(bus, "dc_follower_measurement_ns", snapshot.dc_follower.measurement_error_ns);
+    add(bus, "dc_follower_residual_ns", snapshot.dc_follower.residual_ns);
+    add(bus, "dc_follower_filtered_ns", snapshot.dc_follower.filtered_error_ns);
+    add(bus, "dc_follower_frequency_ns", snapshot.dc_follower.frequency_ns_per_cycle);
+    add(bus, "dc_follower_sample_age_ns", snapshot.dc_follower.sample_age_ns);
+    add(bus, "dc_follower_last_valid_age_ns", snapshot.dc_follower.last_valid_age_ns);
+    add(bus, "dc_follower_disabled_ns", snapshot.dc_follower.disabled_observation_ns);
+    add(bus, "dc_follower_good_samples", snapshot.dc_follower.consecutive_good_samples);
+    add(bus, "dc_follower_accepted", snapshot.dc_follower.accepted_samples);
+    add(bus, "dc_follower_rejected", snapshot.dc_follower.rejected_samples);
+    add(bus, "dc_follower_matched_cycle", snapshot.reference_sample_cycle);
+    add(bus, "dc_follower_ref32", snapshot.follower_last_ref32);
+    add(bus, "dc_follower_ref_received_cycle", snapshot.follower_ref_received_cycle);
+    add(bus, "dc_follower_getter_errors", snapshot.reference_getter_errors);
+    add(bus, "dc_follower_getter_failed", snapshot.follower_getter_failed);
+    add(bus, "dc_follower_getter_consecutive_errors", snapshot.follower_getter_consecutive_errors);
+    add(bus, "dc_follower_schedule_failed", snapshot.follower_schedule_failed);
+    add(bus, "dc_follower_skipped_periods", snapshot.follower_skipped_periods);
+    add(bus, "dc_follower_failure_cycle", snapshot.follower_failure_cycle);
+    add(bus, "dc_follower_failure_residual_ns", snapshot.follower_failure_residual_ns);
+    add(bus, "dc_follower_last_reject_cycle", snapshot.follower_reject_cycle);
+    add(bus, "dc_follower_last_reject_ns", snapshot.follower_reject_residual_ns);
+    add(bus, "dc_follower_last_reject_reason", snapshot.follower_reject_reason);
+    add(bus, "startup_bus_cycles", snapshot.startup_bus_cycles);
+    add(bus, "startup_dc_samples", snapshot.startup_dc_samples);
+    add(bus, "dc_difference_ns", snapshot.dc_difference_ns);
+    add(bus, "dc_sample_queue_cycle", snapshot.dc_sample_queue_cycle);
+    add(bus, "dc_sample_reference_age_cycles", snapshot.dc_sample_reference_age_cycles);
+    add(bus, "fresh_reference_time", fresh_reference_time_);
+    add(bus, "dc_reference_sync_cycles", reference_sync_cycles_);
+    add(bus, "reference_sync_attempts", snapshot.reference_sync_attempts);
+    add(bus, "reference_sync_queued", snapshot.reference_sync_queued);
+    add(bus, "last_reference_sync_cycle", snapshot.last_reference_sync_cycle);
+    add(bus, "timing_reference_sync_cycles", snapshot.timing_reference_sync_cycles);
+    add(bus, "timing_window_start_ns", snapshot.timing_window_start_ns);
+    add(bus, "timing_window_end_ns", snapshot.timing_window_end_ns);
+    add(bus, "timing_window_cycles", snapshot.timing_window_cycles);
+    add(bus, "slow_send_cycles_over100us", snapshot.slow_send_cycles);
+    add(bus, "last_slow_send_ns", snapshot.last_slow_send_ns);
+    add(bus, "sync_errors", snapshot.sync_errors);
+    add(bus, "schedule_rebases", snapshot.schedule_rebases);
+    static constexpr std::array<const char *, 9> timing_names = {
+      "receive_process", "io_mutex_wait", "exchange", "wake_to_sync", "sync_call",
+      "reference_age_at_send", "wake_to_send", "send_call", "wake_to_send_return"};
+    for (std::size_t i = 0; i < timing_names.size(); ++i) {
+      const std::string all_key = std::string("max_") + timing_names[i] + "_ns";
+      const std::string window_key = std::string("window_max_") + timing_names[i] + "_ns";
+      add(bus, all_key.c_str(), snapshot.timing_max_ns[i]);
+      add(bus, window_key.c_str(), snapshot.timing_window_max_ns[i]);
+    }
     message.status.push_back(bus);
     for (std::size_t axis = 0; axis < kJointsPerArm; ++axis) {
       const auto & data = snapshot.axes[axis];
       diagnostic_msgs::msg::DiagnosticStatus status;
       status.name = info_.joints[master * kJointsPerArm + axis].name;
       status.hardware_id = bus.hardware_id + "/slave" + std::to_string(axis);
-      status.level = stale ? 3 : ((data.error_code != 0 || (data.status_word & 8)) ? 2 : bus.level);
+      status.level = stale ? 3 : ((data.error_code != 0 || (data.status_word & 8) || data.torque_guard_fault) ? 2 : bus.level);
       status.message = stale ? "feedback stale" : (status.level == 0 ? "PDO snapshot" : "drive/bus fault");
+      const auto joint_index = master * kJointsPerArm + axis;
+      const auto & limits = torque_parameters_[joint_index];
+      const auto & trip = data.torque_fault_snapshot;
+      const auto reason = static_cast<TorqueSafety::Fault>(data.torque_guard_fault);
+      if (!stale && data.torque_guard_fault) {
+        status.message = std::string("CST ") + TorqueSafety::fault_name(reason) +
+          "; drives disabled; restart controller and send fresh zero to rearm";
+      }
+      if (!stale && logged_torque_fault_[joint_index] != data.torque_guard_fault) {
+        logged_torque_fault_[joint_index] = data.torque_guard_fault;
+        if (data.torque_guard_fault && trip.valid) {
+          RCLCPP_ERROR(logger_,
+            "CST guard %s fault=%u (%s): position=%.3fdeg, speed=%.3fdeg/s (limit %.3f), "
+            "relative_displacement=%.3fdeg (limit %.3f); target torque=0, CW6, stop latched",
+            status.name.c_str(), data.torque_guard_fault, TorqueSafety::fault_name(reason),
+            radians_to_degrees(trip.input.position), radians_to_degrees(trip.input.velocity),
+            radians_to_degrees(limits.max_velocity_rad_s), radians_to_degrees(trip.displacement),
+            radians_to_degrees(limits.max_displacement_rad));
+        } else if (data.torque_guard_fault) {
+          RCLCPP_ERROR(logger_, "CST guard %s fault=%u (%s); target torque=0, CW6, stop latched",
+            status.name.c_str(), data.torque_guard_fault, TorqueSafety::fault_name(reason));
+        }
+      }
       add(status, "sample_steady_ns", snapshot.sample_steady_ns);
       add(status, "actual_counts", data.actual_counts);
       add(status, "target_counts", data.target_counts);
       add(status, "velocity_raw", data.velocity_raw);
       add(status, "torque_raw", data.torque_raw);
+      add(status, "effort_nm", data.effort_nm);
+      add(status, "commanded_effort_nm", data.commanded_effort_nm);
+      add(status, "target_torque_raw", data.target_torque_raw);
+      add(status, "actual_mode", data.actual_mode);
+      add(status, "effort_claimed", data.effort_claimed);
+      add(status, "torque_armed", data.torque_armed);
+      add(status, "torque_guard_fault", data.torque_guard_fault);
+      add(status, "guard_fault_snapshot_valid", trip.valid);
+      add(status, "guard_fault_position_rad", trip.input.position);
+      add(status, "guard_fault_anchor_rad", trip.anchor);
+      add(status, "guard_fault_displacement_rad", trip.displacement);
+      add(status, "guard_fault_velocity_rad_s", trip.input.velocity);
+      add(status, "guard_fault_command_nm", trip.valid ? trip.input.command : 0.0);
+      add(status, "max_velocity_rad_s", limits.max_velocity_rad_s);
+      add(status, "max_displacement_rad", limits.max_displacement_rad);
       add(status, "status_word", data.status_word);
       add(status, "control_word", data.control_word);
       add(status, "error_code", data.error_code);
@@ -2001,25 +3017,16 @@ double KaixuanCanSystem::motor_rpm_to_joint_radians_per_second(
 double KaixuanCanSystem::joint_counts_to_radians(
   std::int32_t counts, std::size_t joint_index) const
 {
-  const auto turns =
-    static_cast<double>(counts) /
-    (static_cast<double>(kMotorCountsPerRevolution) * joint_gear_ratio_[joint_index]);
-  const auto degrees =
-    joint_direction_[joint_index] *
-    (turns * 360.0 - joint_offset_deg_[joint_index]);
-  return degrees_to_radians(degrees);
+  return JointAngleMapping{joint_gear_ratio_[joint_index], joint_offset_deg_[joint_index],
+    joint_direction_[joint_index], torque_parameters_[joint_index].normalize_position}.position(counts);
 }
 
 std::int32_t KaixuanCanSystem::radians_to_joint_counts(
   double radians, std::size_t joint_index) const
 {
-  const auto degrees =
-    joint_direction_[joint_index] * radians_to_degrees(radians) +
-    joint_offset_deg_[joint_index];
-  const auto counts =
-    degrees * static_cast<double>(
-    kMotorCountsPerRevolution) * joint_gear_ratio_[joint_index] / 360.0;
-  return static_cast<std::int32_t>(std::llround(counts));
+  return JointAngleMapping{joint_gear_ratio_[joint_index], joint_offset_deg_[joint_index],
+    joint_direction_[joint_index], torque_parameters_[joint_index].normalize_position}.
+    target_counts(radians, actual_counts_[joint_index]);
 }
 
 void KaixuanCanSystem::initialize_runtime()
@@ -2065,8 +3072,18 @@ void KaixuanCanSystem::reset_runtime_state()
     std::lock_guard<std::mutex> lock(io_mutex_);
     std::fill(hw_positions_.begin(), hw_positions_.end(), 0.0);
     std::fill(hw_velocities_.begin(), hw_velocities_.end(), 0.0);
-    std::fill(hw_commands_.begin(), hw_commands_.end(), 0.0);
+    std::fill(hw_efforts_.begin(), hw_efforts_.end(), 0.0);
+    std::fill(hw_commands_.begin(), hw_commands_.end(), cst_mode_ ?
+      std::numeric_limits<double>::quiet_NaN() : 0.0);
+    requested_efforts_.fill(std::numeric_limits<double>::quiet_NaN());
+    measured_efforts_.fill(0.0);
+    measured_positions_.fill(0.0);
+    measured_velocities_.fill(0.0);
+    effort_claimed_.fill(false);
+    effort_write_ns_ = 0;
+    for (auto & guard : torque_safety_) {guard.reset();}
     std::fill(commanded_counts_.begin(), commanded_counts_.end(), 0);
+    actual_counts_.fill(0);
     std::fill(
       position_initialized_.begin(), position_initialized_.end(), false);
   }

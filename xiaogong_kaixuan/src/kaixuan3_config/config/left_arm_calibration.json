@@ -1,14 +1,14 @@
 {
   "date": "2026-11-03T11:18:52.429563+08:00",
-  "reference": "User confirmed that the physical left arm matches the current edited URDF zero pose. All seven target joint angles are 0 rad at this captured physical pose.",
+  "reference": "Captured physical pose and axis directions are preserved. left_joint5 compensation is represented one output revolution higher (+360 degrees), so its original +pi reference is now -pi. Feedback for this joint is normalized to [-pi, pi); position commands preserve the nearest encoder turn.",
   "model_path": "src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
-  "model_sha256": "6ac12923e5807f5253569a9a1c7829b64ca42f40df5920b994ec49b61f1e0608",
+  "model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12",
   "repository_commit": "d765ecc8059def31aa19c9b26200866a2e732386",
   "model_has_uncommitted_edits": true,
   "previous_calibration_date": "2026-10-29T06:41:33.711346+00:00",
   "previous_calibration_sha256": "d66743fb09d18cfefbc20819f638db02552a1ddfd67a61c9e860ccf34b07c659",
   "motor_counts_per_revolution": 1048576,
-  "formula": "q_rad = direction * (counts * 360 / (1048576 * gear_ratio) - comp_deg) * pi / 180; comp_new = raw_output_deg - q_target_deg / direction",
+  "formula": "q_unwrapped_rad = direction * (counts * 360 / (1048576 * gear_ratio) - comp_deg) * pi / 180; left_joint5 q_rad = (q_unwrapped_rad + pi) modulo (2*pi) - pi; other joints q_rad = q_unwrapped_rad",
   "sampling_method": "Five SDO upload-only reads of 0x6064 per joint, followed by upload-only reads of 0x6041 and 0x603F. No SDO downloads, drive enables, fault resets, controller startup or motion goals.",
   "sample_timestamps": [
     "2026-11-03T11:18:50.626070+08:00",
@@ -47,10 +47,11 @@
       "target_deg": 0.0,
       "new_comp_deg": 27.66017838,
       "sampling_drift_deg": 0.0,
-      "zero_residual_rad": 4.883425140449184e-11,
       "inverse_counts": 8137177,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": 4.883425140449184e-11,
+      "reference_residual_rad": 4.883425140449184e-11
     },
     {
       "joint": "left_joint2",
@@ -72,10 +73,11 @@
       "target_deg": 0.0,
       "new_comp_deg": -23.88096989,
       "sampling_drift_deg": 0.0,
-      "zero_residual_rad": 3.64274226063043e-11,
       "inverse_counts": -7025395,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": 3.64274226063043e-11,
+      "reference_residual_rad": 3.64274226063043e-11
     },
     {
       "joint": "left_joint3",
@@ -97,10 +99,11 @@
       "target_deg": 0.0,
       "new_comp_deg": -69.48424021,
       "sampling_drift_deg": 0.0,
-      "zero_residual_rad": -7.033601509481115e-11,
       "inverse_counts": -16393389,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": -7.033601509481115e-11,
+      "reference_residual_rad": -7.033601509481115e-11
     },
     {
       "joint": "left_joint4",
@@ -122,10 +125,11 @@
       "target_deg": 0.0,
       "new_comp_deg": -91.14551544,
       "sampling_drift_deg": 0.0,
-      "zero_residual_rad": -3.306586145283689e-11,
       "inverse_counts": -21503925,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": -3.306586145283689e-11,
+      "reference_residual_rad": -3.306586145283689e-11
     },
     {
       "joint": "left_joint5",
@@ -143,14 +147,16 @@
       "direction": 1,
       "old_comp_deg": -87.44871777,
       "old_feedback_deg": 182.01190207381245,
-      "target_rad": 0.0,
-      "target_deg": 0.0,
-      "new_comp_deg": 94.5631843,
+      "target_rad": -3.141592653589793,
+      "target_deg": -180.0,
+      "new_comp_deg": 274.5631843,
       "sampling_drift_deg": 0.0,
-      "zero_residual_rad": 6.653997403795625e-11,
       "inverse_counts": 27818959,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": -3.1415926535232526,
+      "reference_residual_rad": 6.654055084709398e-11,
+      "normalize_position": true
     },
     {
       "joint": "left_joint6",
@@ -172,10 +178,11 @@
       "target_deg": 0.0,
       "new_comp_deg": 23.35374511,
       "sampling_drift_deg": 0.0,
-      "zero_residual_rad": 1.9973860265262765e-11,
       "inverse_counts": 6870294,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": 1.9973860265262765e-11,
+      "reference_residual_rad": 1.9973860265262765e-11
     },
     {
       "joint": "left_joint7",
@@ -197,20 +204,75 @@
       "target_deg": 0.0,
       "new_comp_deg": -89.59847894,
       "sampling_drift_deg": 3.399235187190594e-06,
-      "zero_residual_rad": -7.921212886819674e-12,
       "inverse_counts": -26358423,
       "status_word": "0x1618",
-      "error_code": "0x012c"
+      "error_code": "0x012c",
+      "reference_feedback_rad": -7.921212886819674e-12,
+      "reference_residual_rad": -7.921212886819674e-12
     }
   ],
   "validation": {
     "stable_read_only_samples": true,
-    "zero_angle_roundtrip": true,
     "inverse_counts_roundtrip": true,
     "launch_argument_propagation": true,
     "physical_motion_tested": false,
     "installed_launch_matches_source": true,
     "right_arm_defaults_preserved": true,
-    "max_zero_residual_rad": 7.033601509481115e-11
+    "reference_angle_roundtrip": true,
+    "direction_mapping_verified_offline": true,
+    "reference_angles_within_urdf_limits": true,
+    "max_reference_residual_rad": 7.033601509481115e-11,
+    "model_axes_match_remote": true
+  },
+  "configuration_updated_at": "2026-11-03T20:42:14.099362+08:00",
+  "mapping_adjustments": [
+    {
+      "joint": "left_joint2",
+      "parameter": "URDF axis",
+      "old_value": "0 0 1",
+      "new_value": "0 0 -1",
+      "hardware_direction": 1
+    },
+    {
+      "joint": "left_joint6",
+      "parameter": "URDF axis",
+      "old_value": "0 0 1",
+      "new_value": "0 0 -1",
+      "hardware_direction": 1
+    },
+    {
+      "joint": "left_joint5",
+      "parameter": "left_comp4",
+      "old_value_deg": 94.5631843,
+      "new_value_deg": -85.4368157,
+      "delta_deg": -180.0,
+      "request": "Subtract exactly 180 degrees from the existing compensation."
+    }
+  ],
+  "reference_limit_violations": [],
+  "axis_convention_update": {
+    "old_model_sha256": "6ac12923e5807f5253569a9a1c7829b64ca42f40df5920b994ec49b61f1e0608",
+    "new_model_sha256": "b384b64c823fb3342b1a4314ab2a4775fdf712a1a2681089db3079d2c0fdab1c",
+    "zero_pose_geometry_changed": false
+  },
+  "position_normalization": {
+    "date": "2026-11-03T20:42:14.099362+08:00",
+    "joint": "left_joint5",
+    "range_deg": [
+      -180,
+      180
+    ],
+    "range_convention": "[-180, 180)",
+    "previous_comp_deg": -85.4368157,
+    "comp_deg": 274.5631843,
+    "offset_delta_deg": 360.0,
+    "reference_angle_deg": -180.0,
+    "urdf_lower_rad": -3.141592653589793,
+    "urdf_upper_rad": 3.141592653589793,
+    "geometry_changed": false,
+    "command_mapping": "Choose the encoder-equivalent target closest to current feedback.",
+    "displacement_guard": "Uses continuous encoder angle across the +/-pi boundary.",
+    "previous_model_sha256": "b384b64c823fb3342b1a4314ab2a4775fdf712a1a2681089db3079d2c0fdab1c",
+    "model_sha256": "0b46651bf252743ec001a550fa95d6a9be72a4dc1fc7e9e1547d520a3b748f12"
   }
 }

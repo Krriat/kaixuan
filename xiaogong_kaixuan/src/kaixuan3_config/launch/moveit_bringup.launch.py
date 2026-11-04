@@ -36,8 +36,10 @@ def start_flight_recorder(context):
     directory = Path(launch_config.log_dir) / "flight_recorder"
     names = ["use_real_hardware", "active_arm", "cycle_time_ns", "shift_time_ns", "priority",
              "master0_affinity", "master1_affinity", "o6_command_timeout_ms", "o6_max_step",
-             "o6_imu_only", "bus_diagnostics"]
+             "o6_imu_only", "bus_diagnostics", "dc_clock_mode", "dc_reference_time", "dc_reference_sync_cycles",
+             "dc_reset_after_configuration"]
     names += [f"{prefix}{i}" for prefix in ("comp", "left_comp") for i in range(7)]
+    names += [f"left_direction{i}" for i in range(1, 8)]
     names += [f"{arm}_gear_ratio{i}" for arm in ("right", "left") for i in range(1, 8)]
     arguments = ["--output-dir", str(directory), "--period", "0.2",
                  "--active-arm", LaunchConfiguration("active_arm").perform(context),
@@ -133,8 +135,8 @@ def generate_launch_description():
 
     # ===== Switch =====
     ld.add_action(DeclareBooleanLaunchArg("use_real_hardware", default_value=False))
-    ld.add_action(DeclareBooleanLaunchArg("record_diagnostics", default_value=True))
-    ld.add_action(DeclareBooleanLaunchArg("bus_diagnostics", default_value=True))
+    ld.add_action(DeclareBooleanLaunchArg("record_diagnostics", default_value=False))
+    ld.add_action(DeclareBooleanLaunchArg("bus_diagnostics", default_value=False))
 
     # RViz on/off
     ld.add_action(DeclareBooleanLaunchArg("use_rviz", default_value=True))
@@ -149,7 +151,18 @@ def generate_launch_description():
 
     # ===== Real-hardware args (EtherCAT + per-joint compensation, degrees) =====
     ld.add_action(DeclareLaunchArgument("cycle_time_ns", default_value="1000000"))
-    ld.add_action(DeclareLaunchArgument("shift_time_ns", default_value="0"))
+    ld.add_action(DeclareLaunchArgument("shift_time_ns", default_value="500000"))
+    ld.add_action(DeclareLaunchArgument("dc_clock_mode", default_value="reference",
+                                       choices=["host", "reference"],
+                                       description="Select host-driven clock correction or reference-clock following."))
+    ld.add_action(DeclareLaunchArgument("dc_reference_time", default_value="before_sync",
+                                       choices=["cycle_start", "before_sync"]))
+    ld.add_action(DeclareLaunchArgument("dc_reference_sync_cycles", default_value="1",
+                                       choices=[str(value) for value in range(1, 101)],
+                                       description="Host-to-reference clock correction interval in EtherCAT cycles."))
+    ld.add_action(DeclareLaunchArgument("dc_reset_after_configuration", default_value="false",
+                                       choices=["true", "false"],
+                                       description="Reset DC filter state after configuration and before enabling drives."))
     ld.add_action(DeclareLaunchArgument("priority", default_value="90"))
     ld.add_action(DeclareLaunchArgument("master0_affinity", default_value="6"))
     ld.add_action(DeclareLaunchArgument("master1_affinity", default_value="7"))
@@ -165,21 +178,25 @@ def generate_launch_description():
         "-9.17790101",
         "-0.02567102",
     ]
-    # 2026-11-03: current physical pose matches the edited URDF zero pose.
+    # 2026-11-03: offsets from the physical reference pose, with user corrections.
     # Read-only encoder samples and observed drive status: config/left_arm_calibration.json.
-    # q_deg = raw_output_deg - comp_deg (left direction is +1); all seven targets are zero.
+    # q_deg = direction * (raw_output_deg - comp_deg).
     _left_comp_defaults = [
         "27.66017838",
         "-23.88096989",
         "-69.48424021",
         "-91.14551544",
-        "94.56318430",
+        "274.56318430",
         "23.35374511",
         "-89.59847894",
     ]
     for i, default in enumerate(_comp_defaults):
         ld.add_action(DeclareLaunchArgument(f"comp{i}", default_value=default))
         ld.add_action(DeclareLaunchArgument(f"left_comp{i}", default_value=_left_comp_defaults[i]))
+    # Joint-axis reversal is in both URDFs; keep hardware signs positive to avoid double reversal.
+    _left_direction_defaults = ["1", "1", "1", "1", "1", "1", "1"]
+    for i, default in enumerate(_left_direction_defaults, start=1):
+        ld.add_action(DeclareLaunchArgument(f"left_direction{i}", default_value=default))
     _gear_ratio_defaults = ["101.0", "101.0", "81.0", "81.0", "101.0", "101.0", "101.0"]
     for i, default in enumerate(_gear_ratio_defaults, start=1):
         ld.add_action(DeclareLaunchArgument(f"right_gear_ratio{i}", default_value=default))
@@ -228,6 +245,10 @@ def generate_launch_description():
         "shift_time_ns": LaunchConfiguration("shift_time_ns"),
         "priority": LaunchConfiguration("priority"),
         "bus_diagnostics": LaunchConfiguration("bus_diagnostics"),
+        "dc_clock_mode": LaunchConfiguration("dc_clock_mode"),
+        "dc_reference_time": LaunchConfiguration("dc_reference_time"),
+        "dc_reference_sync_cycles": LaunchConfiguration("dc_reference_sync_cycles"),
+        "dc_reset_after_configuration": LaunchConfiguration("dc_reset_after_configuration"),
         "master0_affinity": LaunchConfiguration("master0_affinity"),
         "master1_affinity": LaunchConfiguration("master1_affinity"),
         "o6_command_timeout_ms": LaunchConfiguration("o6_command_timeout_ms"),
@@ -235,6 +256,7 @@ def generate_launch_description():
         "o6_imu_only": LaunchConfiguration("o6_imu_only"),
         **{f"comp{i}": LaunchConfiguration(f"comp{i}") for i in range(7)},
         **{f"left_comp{i}": LaunchConfiguration(f"left_comp{i}") for i in range(7)},
+        **{f"left_direction{i}": LaunchConfiguration(f"left_direction{i}") for i in range(1, 8)},
         **{
             f"right_gear_ratio{i}": LaunchConfiguration(f"right_gear_ratio{i}")
             for i in range(1, 8)
