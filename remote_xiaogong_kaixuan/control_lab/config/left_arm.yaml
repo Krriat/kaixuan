@@ -1,0 +1,44 @@
+schema_version: 1
+# Paths are relative to control_lab/, never to the SSH machine's home directory.
+urdf: ../model/robot.urdf
+joint_names: [left_joint1, left_joint2, left_joint3, left_joint4, left_joint5, left_joint6, left_joint7]
+end_effector_frame: left_ee
+gravity_m_s2: [0.0, 0.0, -9.80665]
+physics_step_s: 0.001
+# All non-selected revolute joints are rigidly fixed at URDF q=0.
+initial_position_rad: [0, 0, 0, 0, 0, 0, 0]
+contact_enabled: false
+
+inertia:
+  # Additional OUTPUT-side inertia; do not multiply these values by N^2 again.
+  armature_kg_m2:
+    left_joint7: 0.02
+    right_joint7: 0.02
+  status: engineering_estimate_not_identified
+  gear_ratio_joint7: 101
+  equivalent_motor_rotor_kg_m2: 0.0000019605920988138417
+  sensitivity_multipliers: [0.5, 1.0, 2.0]
+  # 0.02 / 101^2 = 1.96e-6 kg.m^2. This is a plausible small-rotor
+  # hypothesis, NOT a KGU manufacturer parameter or measured inertia.
+  # J1-J6 remain the URDF rigid-body model; missing armature is not proven zero.
+
+actuator:
+  # Ideal joint-torque source first. These are simulation assumptions.
+  delay_steps: 0
+  time_constant_s: 0.0
+  # null = no rate limiter. Setting this to the hardware rates below enables it.
+  torque_slew_nm_s: null
+
+limits:
+  # Snapshot of the real gravity-control profile, not rated/peak motor limits.
+  torque_nm: [13.6, 13.6, 8.0, 8.0, 3.0, 3.0, 3.0]
+  velocity_rad_s: [1.5707963267948966, 1.5707963267948966, 1.5707963267948966, 1.5707963267948966, 1.5707963267948966, 1.5707963267948966, 1.5707963267948966]
+  hardware_torque_slew_nm_s: [6.8, 6.8, 4.0, 4.0, 1.5, 1.5, 1.5]
+  hardware_relative_displacement_rad: 2.0943951023931953
+  # Position ranges come from URDF. Velocity violations terminate the simulation;
+  # the hardware CW6/brake/stop latch is not emulated here.
+
+physical_friction:
+  # Baseline deliberately ideal. Software damping is a controller gain, not b.
+  viscous_nm_s_rad: [0, 0, 0, 0, 0, 0, 0]
+  coulomb_nm: [0, 0, 0, 0, 0, 0, 0]

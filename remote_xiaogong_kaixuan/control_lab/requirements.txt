@@ -1,0 +1,4 @@
+# Python 3.10+ baseline, independent of ROS / the system Python.
+mujoco==3.3.7
+numpy>=1.26,<3
+PyYAML==6.0.3

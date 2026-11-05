@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+/control_lab/artifacts/
+/control_lab/.venv/

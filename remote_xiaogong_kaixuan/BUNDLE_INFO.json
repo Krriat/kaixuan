@@ -3,7 +3,7 @@
   "default_arm": "left",
   "default_domain": 26,
   "source_model": "xiaogong_kaixuan/src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
-  "source_model_sha256": "0cd4b1b3581cbaa06103c7a0930bf9103228e7b50169cb7a497565468f804f3d",
+  "source_model_sha256": "a42df807c6bc0a8c9c23cbb95d037c758b841b02f67b69dea428433e1a977a71",
   "source_srdf_sha256": "0a3176062f9a9ec0740917edf33cf3cbe7022cc5aa15eba1ad525bd458648b87",
   "validation": "URDF origin rotations updated on 2026-11-03 relative to the original model: left_joint1 +180 degrees, left_joint2 +190 degrees, left_joint5 +180 degrees, right_joint2 +10 degrees about their respective joint-local Z axes. Remote and workspace geometry are synchronized. Earlier mock-controller checks precede this geometry update. No motor enable or physical motion was performed. Zero-pose left_joint2 through left_joint6 world axes are now aligned to their nearest horizontal/vertical cardinal directions; maximum prior tilt was 0.002517852 degrees. User-requested left_joint2/left_joint6 axis reversals are synchronized in both URDFs; hardware signs stay +1 to avoid double reversal. On 2026-11-04 left_joint6 was corrected from local -Z back to +Z; the gravity model uses the corrected axis and hardware direction remains +1.",
   "python_motion_client": {
@@ -86,5 +86,22 @@
     "zero_pose_geometry_changed": false,
     "gravity_update": "Rebuild Pinocchio model from the corrected URDF; recompute all joint gravity torques. Keep positive damping and avoid an additional hardware sign reversal.",
     "physical_motion_tested": false
+  },
+  "remote_model_sha256": "c5a1d77c324bedf47d7e6a05294ae091e319ab454cb2daca501b082a3a081ee3",
+  "control_lab": {
+    "date": "2026-11-05",
+    "entry": "control_lab/README.md",
+    "handoff": "control_lab/LOCAL_CODEX_HANDOFF.md",
+    "roadmap": "control_lab/ROADMAP.md",
+    "stage": "00 offline foundation implemented; QP/LQR/MPC/WBC are subsequent exercises",
+    "backend": "MuJoCo 3.3.7, fixed base, left 7 DOF, right arm fixed at URDF zero",
+    "joint7_armature_kg_m2": 0.02,
+    "armature_status": "output-side engineering estimate, not identified; no added tool payload",
+    "config": "control_lab/config/left_arm.yaml",
+    "validation": "6 foundation tests, 32 MuJoCo/Pinocchio comparisons, visual-mesh compile, 5-second gravity hold, expected zero-torque velocity-guard stop",
+    "report": "control_lab/validation/baseline_report.json",
+    "desktop_viewer_tested": false,
+    "real_hardware_commanded": false,
+    "robot_remote_dynamics_geometry": "Same XML attributes except robot name; file formatting/comments also differ"
   }
 }

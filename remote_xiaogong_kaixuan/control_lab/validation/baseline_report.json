@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "samples": 32,
+  "mujoco_version": "3.3.7",
+  "pinocchio_version": "4.0.0",
+  "urdf_sha256": "c5a1d77c324bedf47d7e6a05294ae091e319ab454cb2daca501b082a3a081ee3",
+  "config_sha256": "30721e4f87ac59b6c925a3e94644d3a8daeb3f45fd8f0fe1de07df099994f285",
+  "min_mass_eigenvalue_kg_m2": 0.0005865720419865591,
+  "gravity_hold_drift_rad": 0.0,
+  "joint7_acceleration_for_0p01_nm_rad_s2": 0.49999999975,
+  "forward_dynamics_residual_nm": 1.0918211682045804e-27,
+  "cross_engine_max_abs_errors": {
+    "mass": 5.926385771015674e-10,
+    "gravity": 7.105427357601002e-15,
+    "bias": 8.738076928693772e-11,
+    "position": 4.440892098500626e-16,
+    "rotation": 9.992007221626409e-16,
+    "jacobian": 1.1102230246251565e-15,
+    "inverse_dynamics": 4.5395021075478326e-10
+  }
+}

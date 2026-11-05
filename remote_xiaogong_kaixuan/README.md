@@ -1,5 +1,10 @@
 # 小工凯旋局域网 RViz 客户端
 
+电脑端的 MuJoCo 力矩控制实践已放在 [`control_lab/`](control_lab/README.md)：
+含第 7 轴附加惯量、仿真基础、动力学验证，以及 QP → LQR → MPC → WBC 的分阶段路线。
+给本地 Codex 的入口是 [`control_lab/LOCAL_CODEX_HANDOFF.md`](control_lab/LOCAL_CODEX_HANDOFF.md)。
+该实验环境独立于下面的 ROS 远程客户端，无窗口仿真不需要连接机器人。
+
 适用：你的电脑是 Ubuntu 22.04，已安装 ROS 2 Humble，与机器人处于同一局域网。
 本包为模型、配置和 Python / Bash 脚本，不含 ARM 二进制，也不需要 colcon 编译。
 客户端模型与 `xiaogong_kaixuan/src/xiaogong_kaixuan` 中的小工凯旋 URDF、网格对应。
@@ -218,7 +223,7 @@ bash ./start_rviz.sh
 - `MANIFEST.sha256`：文件校验清单，可运行 `sha256sum -c MANIFEST.sha256`。
 - [`VALIDATION.md`](VALIDATION.md)：Python 接口的离线与模拟测试记录，以及取消请求的限制。
 
-机器人 URDF / 网格 / SRDF 改动后，应重新复制匹配的客户端文件。所有操作仍经过机器人端 MoveIt。
+机器人 URDF / 网格 / SRDF 改动后，应重新复制匹配的客户端文件。上述客户端的真实远程运动经过机器人端 MoveIt。
 
 参考：[MoveIt Humble RViz / MoveGroup 接口](https://moveit.picknik.ai/humble/doc/examples/move_group_interface/move_group_interface_tutorial.html)、
 [ROS 2 Humble 环境变量](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html)、
