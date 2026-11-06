@@ -1,0 +1,13 @@
+name: mujoco_test
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - -r requirements-pinocchio.txt
+      - -r requirements-qp.txt
+      - -r requirements-lqr.txt
+variables:
+  # Keep ~/.local packages from overriding this environment's pinned versions.
+  PYTHONNOUSERSITE: "1"

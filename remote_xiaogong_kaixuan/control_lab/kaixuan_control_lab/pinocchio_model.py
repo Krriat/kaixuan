@@ -51,6 +51,9 @@ class PinocchioDynamics:
         placement = self.data.oMf[self.frame_id]
         jacobian = self.pin.computeFrameJacobian(self.model, self.data, q, self.frame_id,
                                                 self.pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+        # EigenPy squeezes a 6x1 matrix to (6,) for a single active joint.
+        # Preserve the interface's 6 x nv shape, avoiding NumPy broadcasting.
+        jacobian = np.asarray(jacobian).reshape(6, self.model.nv)
         # Same ordering as mj_jacSite: linear then angular, at the tool origin,
         # components expressed in world axes (NOT Pinocchio's WORLD convention).
         return placement.translation.copy(), placement.rotation.copy(), jacobian.copy()

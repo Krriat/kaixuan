@@ -1,0 +1,48 @@
+schema_version: 2
+base_config: config/left_arm.yaml
+control_period_s: 0.01
+initial_position_deg: [0, -30, 15, 45, 0, 20, 0]
+trajectory:
+  start_hold_s: 0.5
+  move_s: 3.0
+  end_hold_s: 1.5
+  displacement_world_m: [0.06, 0.04, 0.02]
+  # Fixed initial tool orientation. Quintic timing gives zero endpoint speed/acceleration.
+  ik_tolerance: 1.0e-10
+  max_ik_iterations: 40
+weights:
+  # Physical scales make Q/R dimensionless before multiplying by the sample time.
+  ee_position_scale_m: 0.005
+  ee_orientation_scale_rad: 0.05
+  joint_position_scale_rad: 0.15
+  joint_velocity_scale_rad_s: 0.6
+  torque_scale_nm: [4, 4, 2, 2, 0.8, 0.8, 0.8]
+  effort_weight: 1.0
+pd:
+  # Both PD baselines use these same frequency/damping settings, fixed before the push.
+  natural_frequency_rad_s: 12.0
+  damping_ratio: 1.0
+pd_frequency_sweep_rad_s: [8, 12, 20, 30, 40, 60, 80]
+# Explicit strong baseline, also checked on reverse force and actuator delay.
+strong_pd_frequency_rad_s: 80
+disturbance:
+  start_s: 1.8
+  duration_s: 0.12
+  force_world_n: [0.0, 0.5, 0.0]
+  # Smooth sin^2 pulse; zero outside [start, start+duration).
+scenarios:
+  nominal: {force_multiplier: 0.0, delay_steps: 0, time_constant_s: 0.0}
+  push: {force_multiplier: 1.0, delay_steps: 0, time_constant_s: 0.0}
+  reverse_push: {force_multiplier: -1.0, delay_steps: 0, time_constant_s: 0.0}
+  delayed_nominal: {force_multiplier: 0.0, delay_steps: 2, time_constant_s: 0.005}
+  delayed_push: {force_multiplier: 1.0, delay_steps: 2, time_constant_s: 0.005}
+  stress_push: {force_multiplier: 4.0, delay_steps: 0, time_constant_s: 0.0}
+acceptance:
+  reference_position_m: 1.0e-6
+  reference_orientation_rad: 1.0e-6
+  nominal_peak_position_m: 0.002
+  pushed_peak_position_m: 0.02
+  final_position_m: 0.001
+  recovery_band_m: 0.001
+  riccati_relative_residual: 1.0e-9
+  linearization_relative_error: 1.0e-4

@@ -43,6 +43,8 @@ def validate(config, *, compare_pinocchio=False, samples=32):
                                      dynamics.kinematics(q), other.kinematics(q)):
                     pairs[key] = a, b
                 for key, (a, b) in pairs.items():
+                    if np.shape(a) != np.shape(b):
+                        raise AssertionError(f"MuJoCo / Pinocchio {key} shape mismatch: {np.shape(a)} vs {np.shape(b)}")
                     errors[key] = max(errors[key], float(np.max(np.abs(a - b))))
         if min_eigenvalue <= 0:
             raise AssertionError("Non-positive mass matrix")

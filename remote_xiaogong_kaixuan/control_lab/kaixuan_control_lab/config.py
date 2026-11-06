@@ -20,6 +20,10 @@ def vector(value, size, label, *, nonnegative=False):
 def load_config(path=DEFAULT_CONFIG):
     with Path(path).open(encoding="utf-8") as stream:
         config = yaml.safe_load(stream)
+    return validate_config(config)
+
+
+def validate_config(config):
     if config["schema_version"] != 1:
         raise ValueError("Unsupported configuration schema")
     names = config["joint_names"]

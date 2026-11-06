@@ -1,0 +1,5 @@
+-r requirements.txt
+# Stage 01 only; exact installed versions are recorded in every summary.json.
+osqp>=1,<2
+scipy>=1.11,<2
+matplotlib>=3.7,<4

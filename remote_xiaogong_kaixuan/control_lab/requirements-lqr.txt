@@ -1,0 +1,4 @@
+-r requirements.txt
+# Stage 02: trajectory splines, matrix exponential, terminal DARE, saved figures.
+scipy>=1.11,<2
+matplotlib>=3.7,<4

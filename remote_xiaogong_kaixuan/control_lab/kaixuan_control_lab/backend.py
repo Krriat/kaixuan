@@ -115,9 +115,17 @@ class MujocoPlant:
         if np.any(self.data.qpos < lower) or np.any(self.data.qpos > upper):
             raise RuntimeError("Simulation position guard exceeded")
 
-    def step(self, requested):
+    def step(self, requested, *, external_wrench_world=None):
         self.check_state()
         warnings_before = self.data.warning.number.copy()
+        # A world-frame [force (N); moment (Nm)] at the CURRENT ee_site origin.
+        # qfrc_applied is independent of the motors and must be cleared each step.
+        wrench = np.zeros(6) if external_wrench_world is None else vector(
+            external_wrench_world, 6, "external end-effector wrench")
+        self.data.qfrc_applied[:] = 0.
+        if np.any(wrench):
+            jacobian = self.dynamics.kinematics(self.data.qpos)[2]
+            self.data.qfrc_applied[:] = jacobian.T @ wrench
         self.data.ctrl[:] = self.actuator.step(requested)
         mujoco.mj_step(self.model, self.data)
         if np.any(self.data.warning.number > warnings_before):
