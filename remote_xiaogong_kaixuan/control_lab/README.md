@@ -67,6 +67,18 @@ PyPI 包名是 `pin`，Python 导入名是 `pinocchio`。可用 wheel 取决于�
 Pinocchio 与 MuJoCo 都从同一 URDF 建模，并应用同一份 armature。
 通过只说明模型转换与数学约定一致；物理参数的真实性仍需实机数据验证。
 
+## 入门：力矩模式让末端走直线
+
+如果想先理解“只发力矩为什么能走直线”，可先运行这个独立入门例子：
+
+```bash
+python -m kaixuan_control_lab.run_torque_line --viewer
+```
+
+从 `[-20,20,30,50,-10,-20,0]°` 出发，保持末端初始姿态，沿世界 Z 轴上移 10 cm。
+使用计算力矩＋PD反馈，每 1 ms 输出七轴 Nm。公式、代码对应关系、数值验收和
+Pinocchio 选项见 [力矩直线运动说明](experiments/00_torque_line/README.md)。
+
 ## 阶段 01：二维 QP
 
 在本目录的 Python 环境中增加本阶段依赖，然后运行：
