@@ -1,0 +1,232 @@
+{
+  "date": "2026-11-10T01:28:39.406962+00:00",
+  "purpose": "User requested left links 1, 2, 3 use right-arm reference geometry and inertial parameters, consistently transformed into existing left link frames.",
+  "parameter_basis": "Right URDF parameters copied by request; no new physical mass or inertia identification.",
+  "urdf_before_sha256": "2fa95561f5655962de4f490c93a033396ca5fba8afd6e9c8b9a647da650c844d",
+  "artifact_directory": "/home/agxorin/cxl/kaixuan/xiaogong_kaixuan/log/left_links_from_right_20261110T012839Z",
+  "links": {
+    "1": {
+      "mapping": "Reflect local X: x_left=-x_right, y_left=y_right, z_left=z_right",
+      "right_to_left_matrix": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mass_kg": 0.790522678844094,
+      "com_left_m": [
+        0.00233973676902388,
+        0.00557394702329454,
+        0.058498277014619
+      ],
+      "inertia_left_kg_m2": {
+        "ixx": 0.0019059627634599,
+        "ixy": -1.43977208278853e-06,
+        "ixz": -3.18827837807906e-05,
+        "iyy": 0.00202854916561761,
+        "iyz": 7.09442913160826e-06,
+        "izz": 0.00147113393544685
+      },
+      "meshes": [
+        {
+          "source": "meshes/arms/right_link1.STL",
+          "destination": "meshes/arms/left_link1.STL",
+          "source_sha256": "4fa68eade95ea7f4087c2d78b1393c6a85567b9ef5c34ffcb290c90da85e8496",
+          "destination_sha256": "3c5e6c3ade137957dea78e5736ba0beeedd1c6409c935bcbb1f91c22000fbb9b",
+          "triangles": 156174,
+          "reflection_triangle_winding_reversed": true
+        }
+      ],
+      "downstream_joint_origin_preserved": true,
+      "inertia_about_com": true
+    },
+    "2": {
+      "mapping": "Rotate 180 degrees around local Y",
+      "right_to_left_matrix": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0
+        ]
+      ],
+      "mass_kg": 0.655022043397898,
+      "com_left_m": [
+        0.00269556026449437,
+        -0.0935527894752916,
+        -0.0178408649970544
+      ],
+      "inertia_left_kg_m2": {
+        "ixx": 0.00248110029710012,
+        "ixy": -4.73346935553376e-05,
+        "ixz": -2.45747724466433e-05,
+        "iyy": 0.00106947897483155,
+        "iyz": 0.000550773962144847,
+        "izz": 0.00230769578980836
+      },
+      "meshes": [
+        {
+          "source": "meshes/arms/right_link2.STL",
+          "destination": "meshes/arms/left_link2.STL",
+          "source_sha256": "b58b72d9dcd3833b0b0dfe24a62e8e95f06bd14adaf7fa5057ef3c540a2767d0",
+          "destination_sha256": "9936319e276b746dbe4e7c5147050538cff733e4aa675e08c5541947aa7739a4",
+          "triangles": 140300,
+          "reflection_triangle_winding_reversed": false
+        }
+      ],
+      "downstream_joint_origin_preserved": true,
+      "inertia_about_com": true
+    },
+    "3": {
+      "mapping": "Rotate 180 degrees around local Z",
+      "right_to_left_matrix": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mass_kg": 0.717498508661569,
+      "com_left_m": [
+        0.00410691660261506,
+        -0.00127364005788846,
+        0.146814500245128
+      ],
+      "inertia_left_kg_m2": {
+        "ixx": 0.00285607244046043,
+        "ixy": 2.04396599055308e-06,
+        "ixz": -7.74319001507057e-05,
+        "iyy": 0.00282264254798835,
+        "iyz": 6.74909156435721e-05,
+        "izz": 0.000929573909212603
+      },
+      "meshes": [
+        {
+          "source": "meshes/arms/right_link3.STL",
+          "destination": "meshes/arms/left_link3.STL",
+          "source_sha256": "925d8f2e1c9a3848358d951403a92fcd636214e50c8e0f0e6605b5cc07901331",
+          "destination_sha256": "6024709d0d7149982d40d2c26ffb05911a0f9eca4880886d98ae72188fc9fa60",
+          "triangles": 140416,
+          "reflection_triangle_winding_reversed": false
+        },
+        {
+          "source": "meshes/arms/right_link3_collision_original.STL",
+          "destination": "meshes/arms/left_link3_collision_from_right.STL",
+          "source_sha256": "b8d258cd470bb5aa8f3b04fd1bdbfaaa6964336c86737862585bdc7a1af8a651",
+          "destination_sha256": "e24db714d0686f1de2aae3b0bffb53fe37d725f4650146ce7f073d2e9dd4d278",
+          "triangles": 137852,
+          "reflection_triangle_winding_reversed": false
+        }
+      ],
+      "downstream_joint_origin_preserved": true,
+      "inertia_about_com": true
+    }
+  },
+  "urdf_after_sha256": "95e5a19db11846d027ebb2d304e863d8a42836baa19e749c01952204c8b36f61",
+  "joint_frames_axes_and_encoder_calibration_unchanged": true,
+  "validation": {
+    "joint_frames_and_axes_preserved": true,
+    "other_links_and_right_arm_preserved": true,
+    "meshes": [
+      {
+        "mesh": "meshes/arms/left_link1.STL",
+        "max_coordinate_error_m": 0.0,
+        "all_triangles_checked": 156174,
+        "reflection_winding_verified": true
+      },
+      {
+        "mesh": "meshes/arms/left_link2.STL",
+        "max_coordinate_error_m": 0.0,
+        "all_triangles_checked": 140300,
+        "reflection_winding_verified": true
+      },
+      {
+        "mesh": "meshes/arms/left_link3.STL",
+        "max_coordinate_error_m": 0.0,
+        "all_triangles_checked": 140416,
+        "reflection_winding_verified": true
+      },
+      {
+        "mesh": "meshes/arms/left_link3_collision_from_right.STL",
+        "max_coordinate_error_m": 0.0,
+        "all_triangles_checked": 137852,
+        "reflection_winding_verified": true
+      }
+    ],
+    "inertias": [
+      {
+        "link": "1",
+        "mass_equal": true,
+        "com_transform_verified": true,
+        "tensor_transform_verified": true,
+        "positive_definite_and_triangle_inequality": true
+      },
+      {
+        "link": "2",
+        "mass_equal": true,
+        "com_transform_verified": true,
+        "tensor_transform_verified": true,
+        "positive_definite_and_triangle_inequality": true
+      },
+      {
+        "link": "3",
+        "mass_equal": true,
+        "com_transform_verified": true,
+        "tensor_transform_verified": true,
+        "positive_definite_and_triangle_inequality": true
+      }
+    ],
+    "total_modeled_arm_mass_kg": {
+      "left": 3.6148764200858827,
+      "right": 3.614876438377583
+    },
+    "pinocchio_load": true,
+    "finite_gravity_and_positive_mass_matrix": [
+      {
+        "max_abs_gravity_nm": 0.24613541864868102,
+        "min_mass_matrix_eigenvalue": 9.999999868850164e-12
+      },
+      {
+        "max_abs_gravity_nm": 3.508255237031391,
+        "min_mass_matrix_eigenvalue": 9.999999871901529e-12
+      },
+      {
+        "max_abs_gravity_nm": 4.747336302018701,
+        "min_mass_matrix_eigenvalue": 9.999999882565228e-12
+      }
+    ],
+    "xacro_propagates_new_inertias": true,
+    "installed_urdf_and_all_meshes_match_source": true,
+    "description_package_built": true
+  }
+}

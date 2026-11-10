@@ -1,0 +1,7 @@
+<library path="kaixuan_lqr_torque_controller">
+  <class name="kaixuan_can_hardware/LqrTorqueController"
+         type="kaixuan_can_hardware::LqrTorqueController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Fixed-size 1 kHz LQI feedback with streamed reference/gains and monotonic watchdog.</description>
+  </class>
+</library>

@@ -290,6 +290,7 @@ private:
     bool follower_getter_failed{false};
     unsigned int follower_getter_consecutive_errors{0};
     std::uint64_t reference_sample_virtual_ns{0}, reference_sample_mono_ns{0};
+    std::uint64_t reference_sample_host_ns{0};  // CLOCK_MONOTONIC_RAW in reference mode.
     std::uint64_t reference_sample_cycle{0}, reference_getter_retry_cycle{0};
     std::uint64_t reference_getter_errors{0}, follower_skipped_periods{0};
     std::uint32_t follower_last_ref32{0};
@@ -373,6 +374,8 @@ private:
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> diagnostic_executor_;
   std::thread diagnostic_thread_;
   unsigned int diagnostic_divider_{0};
+  std::uint64_t diagnostic_snapshot_retries_{0};
+  std::uint64_t diagnostic_snapshot_drops_{0};
   void start_diagnostics();
   void stop_diagnostics();
   void publish_diagnostics();
@@ -452,6 +455,8 @@ private:
   bool o6_imu_only_{false};
 
   bool cst_mode_{false};
+  std::uint16_t cst_disabled_control_word_{6};
+  std::uint16_t disabled_control_word() const {return cst_mode_ ? cst_disabled_control_word_ : 6;}
   bool stop_cst_group_on_fault_{false};
   std::array<bool, kNumJoints> cst_selected_{}, effort_claimed_{};
   std::array<TorqueParameters, kNumJoints> torque_parameters_{};

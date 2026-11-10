@@ -1,5 +1,6 @@
 """CST ros2_control with an explicit joint selection and command watchdog."""
 import json
+import hashlib
 import math
 import os
 import tempfile
@@ -60,7 +61,7 @@ def launch_control(context):
     mappings = {name: value(name) for name in (
         "cycle_time_ns", "shift_time_ns", "priority", "dc_clock_mode",
         "master0_affinity", "master1_affinity", "use_mock_hardware",
-        "torque_config_file", "effort_write_timeout_ms",
+        "torque_config_file", "effort_write_timeout_ms", "cst_disabled_control_word",
         "max_velocity_rad_s", "max_displacement_deg")}
     for name in ("max_velocity_rad_s", "max_displacement_deg"):
         if mappings[name]:
@@ -70,7 +71,9 @@ def launch_control(context):
     mappings.update(control_mode="cst", cst_joints=",".join(joints),
                     active_arm=next(iter(arms)) if len(arms) == 1 else "both")
     gravity_control = value("control_kind") == "gravity"
-    mappings["stop_cst_group_on_fault"] = "true" if gravity_control else "false"
+    native_lqr = value("control_kind") == "torque_lqr"
+    mappings["stop_cst_group_on_fault"] = value("stop_cst_group_on_fault") or (
+        "true" if gravity_control or native_lqr else "false")
     for i in range(7):
         mappings[f"comp{i}"] = value(f"comp{i}")
         mappings[f"left_comp{i}"] = value(f"left_comp{i}")
@@ -83,6 +86,8 @@ def launch_control(context):
     description = {"robot_description": xacro.process_file(model, mappings=mappings).toxml()}
     controller_name = "gravity_compensation_controller" if gravity_control else "torque_controller"
     controller_type = "kaixuan_can_hardware/GravityController" if gravity_control else "kaixuan_can_hardware/TorqueController"
+    if native_lqr:
+        controller_type = "kaixuan_can_hardware/LqrTorqueController"
     parameters = {
         "controller_manager": {"ros__parameters": {
             "update_rate": 1000,
@@ -93,6 +98,36 @@ def launch_control(context):
             "joints": joints, "command_timeout": float(value("command_timeout")),
         }},
     }
+    if native_lqr:
+        with open(value("lqr_config_file"), encoding="utf-8") as stream:
+            lqr_config = yaml.safe_load(stream)
+        with open(value("torque_config_file"), encoding="utf-8") as stream:
+            torque_config = yaml.safe_load(stream)["joints"]
+        if (joints != [f"left_joint{i}" for i in range(1, 8)]
+                or lqr_config.get("runtime_backend") != "ros2_control"
+                or lqr_config["lqr"].get("runtime_hz") != 1000.
+                or lqr_config["control_method"] != "tvlqi"
+                or lqr_config["velocity_filter_s"] != 0.
+                or lqr_config["lqr"].get("torque_change_time_s", 0.) != 0.):
+            raise ValueError("Native LQI needs ordered seven left joints, 1kHz runtime and an input delay model")
+        model = lqr_config["lqr"]["input_dynamics"]
+        channels = model.get("channels", [model])
+        parameters["torque_controller"]["ros__parameters"].update({
+            "runtime_hz": 1000.,
+            "shadow_only": value("lqr_shadow_only") == "true",
+            "input_joint_indices": [joints.index(c["joint"]) for c in channels],
+            "input_delays": [int(c["delay_steps"]) for c in channels],
+            "input_time_constants": [float(c["time_constant_s"]) for c in channels],
+            "max_speed_rad_s": math.radians(lqr_config["max_actual_speed_deg_s"]),
+            "max_tracking_error_rad": math.radians(lqr_config["max_tracking_error_deg"]),
+            "integral_limits": list(map(float, lqr_config["integral_limit_nm"])),
+            "effort_limits": [float(torque_config[j]["effort_limit_nm"]) for j in joints],
+            "effort_slew": [float(torque_config[j]["effort_slew_nm_s"]) for j in joints],
+            "effort_release_slew": [float(torque_config[j].get("effort_release_slew_nm_s", 0.)
+                                          or torque_config[j]["effort_slew_nm_s"]) for j in joints],
+            "planning_config_sha256": hashlib.sha256(json.dumps(lqr_config, sort_keys=True,
+                separators=(",", ":"), allow_nan=False).encode()).hexdigest(),
+        })
     if gravity_control:
         library = os.path.join(get_package_prefix("kaixuan_can_hardware"), "lib", "libkaixuan_gravity_controller.so")
         if not os.path.exists(library):
@@ -171,7 +206,15 @@ def generate_launch_description():
         DeclareLaunchArgument("joints", default_value="left_joint7",
                               description="Comma-separated joints permitted to use effort control."),
         DeclareLaunchArgument("use_mock_hardware", default_value="true", choices=["true", "false"]),
-        DeclareLaunchArgument("control_kind", default_value="torque", choices=["torque", "gravity"]),
+        DeclareLaunchArgument("control_kind", default_value="torque", choices=["torque", "gravity", "torque_lqr"]),
+        DeclareLaunchArgument("lqr_config_file", default_value="",
+                              description="Required explicit planner YAML for control_kind=torque_lqr."),
+        DeclareLaunchArgument("lqr_shadow_only", default_value="false", choices=["false", "true"],
+                              description="Run native LQI computation while always invalidating hardware effort."),
+        DeclareLaunchArgument("cst_disabled_control_word", default_value="6", choices=["0", "6"],
+                              description="CST unarmed/fault/stop command: 0 disables voltage; 6 requests shutdown."),
+        DeclareLaunchArgument("stop_cst_group_on_fault", default_value="", choices=["", "true", "false"],
+                              description="Stop all selected CST joints on a peer fault; empty keeps the controller default."),
         DeclareLaunchArgument("gravity_scale", default_value="1.0"),
         DeclareLaunchArgument("gravity_ramp_time", default_value="5.0"),
         DeclareLaunchArgument("friction_enabled", default_value="", choices=["", "true", "false"]),

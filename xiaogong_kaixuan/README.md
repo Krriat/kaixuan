@@ -55,6 +55,71 @@ ros2 launch kaixuan3_config gravity_compensation.launch.py use_mock_hardware:=fa
 
 ## I210 / ec_igb 启动时序修复（2026-11-03）
 
+### 2026-11-09：启动粗调的走时速差补偿
+
+重启后的两次左臂 CST 启动曾分别报 follower error 6（20 ms 无可接受样本）和 8（25 秒未完成粗调），
+都发生在电机使能前。原始失败未保存逐拍时间读数；后续重启取证已复现同类 error 6，见下文。
+排查中原版又能在未使能状态锁定，说明故障不是每次启动必现。
+
+已确认一个可独立复现 error 8 的软件边界：旧粗调只按时间偏差作比例修正。
+例如参考钟相对主机慢 300 ppm，在某些初始时差方向下，误差会停在约 75 us，
+而细调入口要求不超过 60 us，最终 25 秒超时；离线复现没有丢失或拒收任何样本。
+本次在粗调阶段从有效配对时间戳估计走时速差，经过 1/256 滤波后作前馈，
+并将细调入口的相位修正量与维持速率所需修正量分开检查。运行期 PI、20 ms 失样、
+25 秒粗调超时、10 秒未使能观察、误差门限及每拍修正/斜率限幅保持原值。
+
+走时速差修正的 15 项 CTest 与 168 组启动工况（含正负 600 ppm、3 us 测量噪声）通过；ASAN/UBSAN 通过。
+实机两次独立启动分别观察 70 秒、45 秒，均锁定并完成硬件接口激活；无力矩控制器，
+全程 CW6、零力矩，首个锁定后 WKC 异常新增均为 0。
+这两次仅验证了粗调速差修正；后续重启又捕获了主机计时调速引起的失锁，因此还需要下面的计时源修正。
+
+调查报告：`~/ec_generic/logs/dc-startup-investigation-20261109.txt`（同名 JSON 含各次原始目录和库 SHA）。
+未使能采样命令（加载 CST 硬件接口，不加载控制器，不发布力矩）：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/agxorin/cxl/kaixuan/xiaogong_kaixuan/install/setup.bash
+python3 ~/ec_generic/scripts/probe_dc_disabled.py --activate-hardware --duration 70
+```
+
+命令保留实时参考时钟取证和 5 Hz 诊断；出现错误自动退出并核验未使能、零力矩状态。
+常规启动失败日志也已增加初始误差、样本年龄、接受/拒收计数、最后拒收原因等字段。
+本次源码及旧库备份在 `~/ec_generic/workspace-backups/dc-acquisition-rate-20261109T021312Z/`。
+
+### 2026-11-09：EtherCAT 同步计时与网络校时隔离
+
+重启后复现 error 6，并保留了逐拍记录：WKC 始终为 21、参考时钟 getter 始终成功、
+没有调度跳拍；主机 `CLOCK_MONOTONIC` 相对 `CLOCK_MONOTONIC_RAW` 的速率突然变化，
+原始相位误差从 -100538 ns 继续增大到 -141716 ns，样本因超过 100 us 被拒收，
+20.0012 ms 没有可接受样本后触发 error 6。这次参考钟相对 RAW 的走时在较长窗口约为 48 ppm。
+另一轮启动同时记录到系统调速约 +3441 ppm，首次主机/参考偏差达 26.75 ms，触发启动保护 error 4。
+这些是本轮直接观测的失败机制；不能据此断言未保留逐拍数据的两次历史报错完全相同。
+
+reference 模式现在统一用 `CLOCK_MONOTONIC_RAW` 产生 application time、参考配对时间戳和周期网格。
+Linux 不支持直接以 RAW 计时调用 `clock_nanosleep`，因此每拍在等待前用 MONOTONIC–RAW–MONOTONIC
+紧邻采样，把下一拍 RAW 截止时间换算为 MONOTONIC 绝对截止时间。网络校时只影响剩余不足一拍的等待，
+其累计时差不再进入同步环。通用超时、驱动力矩保护计时仍使用原来的 MONOTONIC。
+1 ms 周期、500 us 相位、PI 参数和所有误差、超时、修正量/斜率限幅保持不变；系统网络校时保持开启。
+
+16 项 CTest 通过。新增双时钟模拟覆盖锁定后突然发生的 +3500/-2500 ppm 与 -3500/+2500 ppm 调速：
+旧 MONOTONIC 方案触发 SamplesLost，RAW 方案两组各运行 90 秒保持锁定；
+本次重启又观测到约 -14046 ppm 的系统调速，已补充正负 15000 ppm 的两组 90 秒模拟并通过。
+RAW 实机版已完成两轮各 75 秒未使能采样，分别 74602 / 74601 拍，
+均完成硬件接口激活、CW6、零目标力矩，锁定后 WKC 异常新增均为 0；第二轮完整开机采样服务正常退出 0。
+再次重启 AGX 后的**首次启动验证已通过**：左臂 Master1，75 秒观测 74646 拍，
+从首个有效样本到锁定约 11.60 秒；锁定后 WKC 异常和拒收样本新增均为 0，getter 错误 0，
+follower error 0、主站 Lost 0。全程 CW6、零目标力矩，7 个驱动器错误码均为 0。
+启动配置阶段有正常的 WKC 递增过程，不能把该阶段不完整计数当作运行丢帧。
+完整开机服务退出 0，之后已停用。记录：`~/ec_generic/logs/dc-coldboot-rate-fixed-20261109T024329Z/`。
+本次只重启了主机，没有给驱动器断电；RAW 版本的这轮验证只覆盖左臂。
+
+启动失败时现在先执行未使能退出、释放主站并保存冻结 trace，再向 controller_manager 返回错误，
+避免其异常退出丢失取证数据。CSV v2 保留原 MONOTONIC 列，并追加 RAW host 时间列及明确的时钟元数据。
+开机采样服务显式设置 `LimitRTPRIO=95`、`LimitMEMLOCK=infinity`；PAM 登录限制不自动应用于系统服务。
+本轮未测厂家 monitor64 丢帧计数，也没有发送运动命令。
+证据图：`~/ec_generic/logs/dc-postboot-inactive-trace-20261109T023148Z/failure-clock-evidence.png`。
+源码和库备份：`~/ec_generic/workspace-backups/dc-raw-clock-20261109T023405Z/`。
+
 ### 当前默认配置：双臂参考时钟跟随
 
 已把本工作区的 MoveIt launch、硬件 launch、真实硬件 xacro 和 C++ 缺省值统一为

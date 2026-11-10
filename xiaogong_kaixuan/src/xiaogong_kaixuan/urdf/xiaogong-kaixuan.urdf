@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <robot name="xiaogong-kaixuan">
-  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs, shoulder attachment transforms, and requested left_joint1/left_joint2/left_joint5/right_joint2 zero-pose rotations and left_joint2 through left_joint6 zero-pose world-axis alignment, plus left_joint2/left_joint6 local-axis reversal. -->
+  <!-- Body: tilt_kaixuan. Both arm subtrees: original kaixu_arm, unchanged except package mesh URIs, shoulder attachment transforms, and requested left_joint1/left_joint2/left_joint5/right_joint2 zero-pose rotations and left_joint2 through left_joint6 zero-pose world-axis alignment, plus left_joint2/left_joint6 local-axis reversal. Left links 1-3 geometry and inertial parameters now derive from the right-arm reference with left-frame transforms (2026-11-10). -->
   <link name="world" />
   <link name="base_link">
     <inertial>
@@ -31,9 +31,9 @@
   </joint>
   <link name="left_link1">
     <inertial>
-      <origin xyz="-0.00205432160417818 -0.00141792269570674 0.0602306905316403" rpy="0 0 0" />
-      <mass value="0.900353226708732" />
-      <inertia ixx="0.0019798027282365" ixy="1.43975493456066E-06" ixz="3.1882808861573E-05" iyy="0.002180314391962" iyz="7.09441451513993E-06" izz="0.00155187680920738" />
+      <origin xyz="0.00233973676902388 0.00557394702329454 0.058498277014619" rpy="0 0 0" />
+      <mass value="0.790522678844094" />
+      <inertia ixx="0.0019059627634599" ixy="-1.43977208278853e-06" ixz="-3.18827837807906e-05" iyy="0.00202854916561761" iyz="7.09442913160826e-06" izz="0.00147113393544685" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -53,9 +53,9 @@
   </link>
   <link name="left_link2">
     <inertial>
-      <origin xyz="0.00169820513299768 -0.0850681024875293 -0.0186008951163804" rpy="0 0 0" />
-      <mass value="0.604151914481596" />
-      <inertia ixx="0.00246317220940863" ixy="-4.90627874413549E-05" ixz="-2.71338448701363E-05" iyy="0.00102580908234191" iyz="0.00054967481756561" izz="0.00227788065207115" />
+      <origin xyz="0.00269556026449437 -0.0935527894752916 -0.0178408649970544" rpy="0 0 0" />
+      <mass value="0.655022043397898" />
+      <inertia ixx="0.00248110029710012" ixy="-4.73346935553376e-05" ixz="-2.45747724466433e-05" iyy="0.00106947897483155" iyz="0.000550773962144847" izz="0.00230769578980836" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -75,9 +75,9 @@
   </link>
   <link name="left_link3">
     <inertial>
-      <origin xyz="0.00356504255324686 -0.00110380082499956 0.132942517414466" rpy="0 0 0" />
-      <mass value="0.826267709769756" />
-      <inertia ixx="0.00290608913488917" ixy="2.04402106628454E-06" ixz="-7.74282491163121E-05" iyy="0.00287256432227637" iyz="6.74849387567589E-05" izz="0.00102563146498865" />
+      <origin xyz="0.00410691660261506 -0.00127364005788846 0.146814500245128" rpy="0 0 0" />
+      <mass value="0.717498508661569" />
+      <inertia ixx="0.00285607244046043" ixy="2.04396599055308e-06" ixz="-7.743190015070569e-05" iyy="0.00282264254798835" iyz="6.749091564357211e-05" izz="0.000929573909212603" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -91,7 +91,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link3.STL" />
+        <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link3_collision_from_right.STL" />
       </geometry>
     </collision>
   </link>
@@ -119,9 +119,9 @@
   </link>
   <link name="left_link5">
     <inertial>
-      <origin xyz="-0.00452262190859698 4.78782853085419E-05 0.0693942356786784" rpy="0 0 0" />
+      <origin xyz="0.00452262190859698 -4.78782853085419E-05 0.0693942356786784" rpy="0 0 0" />
       <mass value="0.342089785077591" />
-      <inertia ixx="0.000414342797863252" ixy="-4.20833306318144E-07" ixz="-6.8594691666444E-06" iyy="0.000400092643924616" iyz="-4.2224723583763E-07" izz="0.000298358665006876" />
+      <inertia ixx="0.000414342797863252" ixy="-4.20833306318144E-07" ixz="6.8594691666444E-06" iyy="0.000400092643924616" iyz="4.2224723583763E-07" izz="0.000298358665006876" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 3.141592653589793" />
@@ -161,14 +161,18 @@
       </geometry>
     </collision>
   </link>
-  <link name="left_link7">
+  <!-- Joint 7 output frame; the negligible-mass tool marker is fixed below. -->
+  <link name="left_link7" />
+  <link name="left_ee">
     <inertial>
-      <origin xyz="-9.9475983006414E-14 1.38777878078145E-17 0.0695499999999997" rpy="0 0 0" />
-      <mass value="0.0005235987755983" />
-      <inertia ixx="5.23598775598301E-09" ixy="3.48688191749923E-38" ixz="1.10202595389589E-38" iyy="5.23598775598301E-09" iyz="-1.10504790539786E-25" izz="5.23598775598301E-09" />
-    </inertial>
-    <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="1e-6" />
+      <!-- Uniform marker sphere: radius 0.005 m, I = 2/5*m*r^2. -->
+      <inertia ixx="1e-11" ixy="0" ixz="0" iyy="1e-11" iyz="0" izz="1e-11" />
+    </inertial>
+    <!-- The existing STL is centered at z=0.06955 in the link7 frame. -->
+    <visual>
+      <origin xyz="0 0 -0.06955" rpy="0 0 0" />
       <geometry>
         <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link7.STL" />
       </geometry>
@@ -177,19 +181,16 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
+      <origin xyz="0 0 -0.06955" rpy="0 0 0" />
       <geometry>
         <mesh filename="package://xiaogong_kaixuan/meshes/arms/left_link7.STL" />
       </geometry>
     </collision>
   </link>
-  <link name="left_ee">
-    <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <mass value="0.0005235987755983" />
-      <inertia ixx="5.23598775598301E-09" ixy="3.48688191749923E-38" ixz="1.10202595389589E-38" iyy="5.23598775598301E-09" iyz="-1.10504790539786E-25" izz="5.23598775598301E-09" />
-    </inertial>
-  </link>
+  <!-- Left-arm planning limits: max_acceleration = 2.0 rad/s^2,
+       max_deceleration = -2.0 rad/s^2 for left_joint1 through left_joint7.
+       ROS 2 Humble URDF limit has no acceleration field. These values are
+       enforced by kaixuan3_config/config/joint_limits.yaml. -->
   <joint name="left_joint1" type="revolute">
     <origin xyz="0 0.20995 -0.049457" rpy="0 -1.396300000000001 -1.570788980384691" />
     <parent link="base_link" />
@@ -335,9 +336,9 @@
   </link>
   <link name="right_link5">
     <inertial>
-      <origin xyz="0.00452262167011572 -4.78780778431082E-05 0.0693942350614427" rpy="0 0 0" />
+      <origin xyz="-0.00452262167011572 4.78780778431082E-05 0.0693942350614427" rpy="0 0 0" />
       <mass value="0.342089789995011" />
-      <inertia ixx="0.000414342800571156" ixy="-4.20832594398887E-07" ixz="6.85946987601414E-06" iyy="0.000400092644836652" iyz="4.22250698241597E-07" izz="0.000298358665421877" />
+      <inertia ixx="0.000414342800571156" ixy="-4.20832594398887E-07" ixz="-6.85946987601414E-06" iyy="0.000400092644836652" iyz="-4.22250698241597E-07" izz="0.000298358665421877" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 3.141592653589793" />
@@ -377,14 +378,18 @@
       </geometry>
     </collision>
   </link>
-  <link name="right_link7">
+  <!-- Joint 7 output frame; the negligible-mass tool marker is fixed below. -->
+  <link name="right_link7" />
+  <link name="right_ee">
     <inertial>
-      <origin xyz="9.9552310839357E-14 -4.16333634234434E-17 0.0695499999999997" rpy="0 0 0" />
-      <mass value="0.0005235987755983" />
-      <inertia ixx="5.23598775598301E-09" ixy="2.35098870164551E-38" ixz="3.34095588761524E-52" iyy="5.23598775598301E-09" iyz="-1.46936793852786E-39" izz="5.23598775598301E-09" />
-    </inertial>
-    <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="1e-6" />
+      <!-- Uniform marker sphere: radius 0.005 m, I = 2/5*m*r^2. -->
+      <inertia ixx="1e-11" ixy="0" ixz="0" iyy="1e-11" iyz="0" izz="1e-11" />
+    </inertial>
+    <!-- The existing STL is centered at z=0.06955 in the link7 frame. -->
+    <visual>
+      <origin xyz="0 0 -0.06955" rpy="0 0 0" />
       <geometry>
         <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link7.STL" />
       </geometry>
@@ -393,21 +398,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
+      <origin xyz="0 0 -0.06955" rpy="0 0 0" />
       <geometry>
         <mesh filename="package://xiaogong_kaixuan/meshes/arms/right_link7.STL" />
       </geometry>
     </collision>
   </link>
-  <link name="right_ee">
-    <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <mass value="0.0005235987755983" />
-      <inertia ixx="5.23598775598301E-09" ixy="2.35098870164551E-38" ixz="3.34549301337815E-52" iyy="5.23598775598301E-09" iyz="-1.47977117832701E-39" izz="5.23598775598301E-09" />
-    </inertial>
-  </link>
   <joint name="right_joint1" type="revolute">
-    <origin xyz="0.010173 -0.20995 -0.049457" rpy="-7.771561172376096e-16 1.3963 -1.570792653589794" />
+    <origin xyz="0 -0.20995 -0.049457" rpy="-7.771561172376096e-16 1.3963 -1.570792653589794" />
     <parent link="base_link" />
     <child link="right_link1" />
     <axis xyz="0 0 1" />

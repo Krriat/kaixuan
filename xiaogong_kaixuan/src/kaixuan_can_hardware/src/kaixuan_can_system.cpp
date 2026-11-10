@@ -1,5 +1,6 @@
 #include "kaixuan_can_hardware/kaixuan_can_system.hpp"
 #include "kaixuan_can_hardware/dc_reference_profile.hpp"
+#include "kaixuan_can_hardware/dc_clock_bridge.hpp"
 
 #include <pthread.h>
 #include <sched.h>
@@ -151,6 +152,12 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
       info_.hardware_parameters.at("control_mode") : "csp";
     if (mode != "csp" && mode != "cst") {throw std::invalid_argument("control_mode must be csp or cst");}
     cst_mode_ = mode == "cst";
+    const auto stop_word = info_.hardware_parameters.count("cst_disabled_control_word") ?
+      info_.hardware_parameters.at("cst_disabled_control_word") : "6";
+    if (stop_word != "0" && stop_word != "6") {
+      throw std::invalid_argument("cst_disabled_control_word must be 0 (disable voltage) or 6 (shutdown)");
+    }
+    cst_disabled_control_word_ = stop_word == "0" ? 0 : 6;
     stop_cst_group_on_fault_ = info_.hardware_parameters.count("stop_cst_group_on_fault") &&
       info_.hardware_parameters.at("stop_cst_group_on_fault") == "true";
     if (info_.hardware_parameters.count("effort_write_timeout_ms")) {
@@ -321,6 +328,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_init(
       p.command_units_per_nm = parameter("torque_command_units_per_nm", 1000.0 / p.rated_nm);
       p.limit_nm = parameter("effort_limit_nm", 0.05 * p.rated_nm);
       p.slew_nm_s = parameter("effort_slew_nm_s", 0.5 * p.rated_nm);
+      p.release_slew_nm_s = parameter("effort_release_slew_nm_s", 0.0);
       p.max_velocity_rad_s = parameter("max_velocity_rad_s", degrees_to_radians(90.0));
       p.max_displacement_rad = parameter("max_displacement_rad", degrees_to_radians(120.0));
       p.min_position_rad = parameter("min_position_rad", -3.14);
@@ -490,7 +498,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_activate(
   for (int i = 0; i < kActivationWaitIterations; ++i)
   {
     {
-      std::lock_guard<std::mutex> lock(io_mutex_);
+      std::unique_lock<std::mutex> lock(io_mutex_);
       bool dc_ready = true;
       for (std::size_t master = 0; master < kMasterCount; ++master) {
         if (!master_is_active(master)) {continue;}
@@ -499,6 +507,22 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_activate(
           RCLCPP_ERROR(logger_, "Master%zu startup failed: DC reset phase=%u error=%u follower_error=%u schedule_failed=%d; drives remain disabled",
             master, snapshot.dc_reset_phase, snapshot.dc_reset_error,
             static_cast<unsigned int>(snapshot.dc_follower.failure), snapshot.follower_schedule_failed);
+          const auto & f = snapshot.dc_follower;
+          RCLCPP_ERROR(logger_,
+            "Master%zu follower detail: calibrated=%d locked=%d initial=%ldns residual=%ldns filtered=%.1fns "
+            "frequency=%.3fns/cycle acquire=%lluns last_valid_age=%lluns accepted=%llu rejected=%llu "
+            "last_reject=%u last_reject_residual=%ldns getter_errors=%llu WKC=%u state=%u",
+            master, f.calibrated, f.locked, static_cast<long>(f.initial_residual_ns),
+            static_cast<long>(f.residual_ns), f.filtered_error_ns, f.frequency_ns_per_cycle,
+            static_cast<unsigned long long>(f.acquisition_elapsed_ns),
+            static_cast<unsigned long long>(f.last_valid_age_ns),
+            static_cast<unsigned long long>(f.accepted_samples), static_cast<unsigned long long>(f.rejected_samples),
+            snapshot.follower_reject_reason, static_cast<long>(snapshot.follower_reject_residual_ns),
+            static_cast<unsigned long long>(snapshot.reference_getter_errors), snapshot.working_counter, snapshot.wc_state);
+          // controller_manager may abort immediately after ERROR. Join/release
+          // here so the frozen trace and disabled shutdown survive that abort.
+          lock.unlock();
+          close_ethercat();
           return hardware_interface::CallbackReturn::ERROR;
         }
         dc_ready = dc_ready && snapshot.dc_reset_ready && snapshot.dc_follower_ready;
@@ -550,6 +574,7 @@ hardware_interface::CallbackReturn KaixuanCanSystem::on_activate(
   RCLCPP_ERROR(
     logger_, "Timed out waiting for EtherCAT feedback/DC initialization. Missing feedback: %s",
     not_ready.c_str());
+  close_ethercat();
   return hardware_interface::CallbackReturn::ERROR;
 }
 
@@ -745,7 +770,7 @@ void KaixuanCanSystem::close_ethercat()
           disable_complete = false;
         }
         for (const auto & axis : latest.axes) {
-          if (axis.control_word != 0x0006 || (axis.status_word & 0x006f) == 0x0027) {
+          if (axis.control_word != disabled_control_word() || (axis.status_word & 0x006f) == 0x0027) {
             disable_complete = false;
           }
         }
@@ -911,6 +936,10 @@ void KaixuanCanSystem::dump_dc_reference_trace(MasterContext & context)
            << "# follower_filter_alpha=" << config.filter_alpha << '\n'
            << "# follower_fine_entry_filtered_ns=" << config.fine_entry_filtered_ns << '\n'
            << "# follower_bounded_handoff=" << config.bumpless_fine_entry << '\n';
+    output << "# follower_acquisition_rate_feedforward=" << config.acquisition_rate_feedforward << '\n'
+           << "# follower_acquisition_rate_alpha=" << config.acquisition_rate_alpha << '\n'
+           << "# follower_host_clock=CLOCK_MONOTONIC_RAW\n"
+           << "# sleep_clock=CLOCK_MONOTONIC_rebased_from_RAW_each_cycle\n";
     context.dc_trace->write_csv(output, context.master_id);
     const auto text = output.str();
     bool ok = output.good();
@@ -1026,11 +1055,12 @@ bool KaixuanCanSystem::configure_master(MasterContext & context)
     // Faster bounded tracking of the observed reference-rate changes. Keep all
     // quality/timeout/output guards; smooth acquisition handoff avoids PI windup.
     context.dc_follower_config = reference_follow_config();
-    RCLCPP_INFO(logger_, "Master%u reference follower: Kp=%.6f Ki=%.9f alpha=%.8f fine_entry=%ldns bounded_handoff=%s",
+    RCLCPP_INFO(logger_, "Master%u reference follower: host_clock=CLOCK_MONOTONIC_RAW sleep_clock=CLOCK_MONOTONIC(rebased) Kp=%.6f Ki=%.9f alpha=%.8f fine_entry=%ldns bounded_handoff=%s acquisition_rate_feedforward=%s",
       context.master_id, context.dc_follower_config.proportional_gain,
       context.dc_follower_config.integral_gain, context.dc_follower_config.filter_alpha,
       context.dc_follower_config.fine_entry_filtered_ns,
-      context.dc_follower_config.bumpless_fine_entry ? "true" : "false");
+      context.dc_follower_config.bumpless_fine_entry ? "true" : "false",
+      context.dc_follower_config.acquisition_rate_feedforward ? "true" : "false");
   }
   context.dc_follower = DcReferenceFollower{context.dc_follower_config};
   context.dc_follower_status = context.dc_follower.status();
@@ -1038,6 +1068,7 @@ bool KaixuanCanSystem::configure_master(MasterContext & context)
   context.follower_getter_failed = false;
   context.follower_getter_consecutive_errors = 0;
   context.reference_sample_virtual_ns = context.reference_sample_mono_ns = 0;
+  context.reference_sample_host_ns = 0;
   context.reference_sample_cycle = context.reference_getter_retry_cycle = 0;
   context.reference_getter_errors = context.follower_skipped_periods = 0;
   context.follower_last_ref32 = 0;
@@ -1459,6 +1490,15 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
     }
 
     const auto cycle_time = steady_now_ns();
+    std::uint64_t host_cycle_time = cycle_time;
+    if (follow_reference_clock_) {
+      timespec raw_now{};
+      if (clock_gettime(CLOCK_MONOTONIC_RAW, &raw_now) != 0) {
+        context.thread_failed.store(true);
+        break;
+      }
+      host_cycle_time = timespec_to_ns(raw_now);
+    }
     const auto scheduled_time = timespec_to_ns(wake_time);
     context.scheduled_time_ns = scheduled_time;
     context.current_lateness_ns = cycle_time > scheduled_time ? cycle_time - scheduled_time : 0;
@@ -1481,9 +1521,11 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
       row = {};
       row.cycle = context.cycle_count;
       row.wake_mono_ns = cycle_time;
+      row.wake_host_ns = host_cycle_time;
       row.scheduled_mono_ns = scheduled_time;
       row.previous_send_cycle = context.reference_sample_cycle;
       row.previous_send_mono_ns = context.reference_sample_mono_ns;
+      row.previous_send_host_ns = context.reference_sample_host_ns;
       row.previous_send_virtual_ns = context.reference_sample_virtual_ns;
       row.previous_raw = context.reference_sample_raw;
       if (context.reference_sample_pending) {row.flags |= DcReferenceTraceRing::PreviousSendQueued;}
@@ -1494,7 +1536,7 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
     // computes B for the NEXT deadline before PDO exchange.
     const auto cycle_base_ns = follow_reference_clock_ ? context.dc_follower_status.base_ns : 0;
     const auto application_time = static_cast<std::uint64_t>(
-      static_cast<std::int64_t>(cycle_time) - cycle_base_ns);
+      static_cast<std::int64_t>(host_cycle_time) - cycle_base_ns);
     if (trace_active) {
       context.dc_trace_row.base_entry_ns = cycle_base_ns;
       context.dc_trace_row.application_ns = application_time;
@@ -1519,7 +1561,7 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
       context.dc_monitor_pending = false;
     }
     poll_dc_startup_reset(context, domain_state, cycle_time);
-    poll_dc_reference_follower(context, domain_state, cycle_time);
+    poll_dc_reference_follower(context, domain_state, host_cycle_time);
     const auto receive_end_ns = steady_now_ns();
     exchange_process_data(context, domain_state);
     const auto exchange_end_ns = steady_now_ns();
@@ -1589,14 +1631,24 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
       else {context.dc_trace_row.flags |= DcReferenceTraceRing::ClockReadError;}
     }
     const auto send_start_ns = steady_now_ns();
+    std::uint64_t host_send_ns = send_start_ns;
+    if (follow_reference_clock_) {
+      timespec raw_send{};
+      if (clock_gettime(CLOCK_MONOTONIC_RAW, &raw_send) != 0) {
+        context.thread_failed.store(true);
+        break;
+      }
+      host_send_ns = timespec_to_ns(raw_send);
+    }
     context.previous_send_result = ecrt_master_send(context.master);
     const auto send_end_ns = steady_now_ns();
     if (follow_reference_clock_) {
       context.reference_sample_pending = slave_sync_result == 0 && context.previous_send_result == 0;
       context.reference_sample_cycle = context.cycle_count;
       context.reference_sample_mono_ns = send_start_ns;
+      context.reference_sample_host_ns = host_send_ns;
       context.reference_sample_virtual_ns = static_cast<std::uint64_t>(
-        static_cast<std::int64_t>(send_start_ns) - cycle_base_ns);
+        static_cast<std::int64_t>(host_send_ns) - cycle_base_ns);
       if (trace_active) {context.reference_sample_raw = context.dc_trace_row.current_raw;}
     }
     context.previous_send_duration_ns = send_end_ns - send_start_ns;
@@ -1642,7 +1694,17 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
       virtual_schedule_ns += static_cast<std::uint64_t>(cycle_time_ns_);
       auto next_ns = static_cast<std::uint64_t>(static_cast<std::int64_t>(virtual_schedule_ns) +
         context.dc_follower_status.base_ns);
-      const auto now_ns = timespec_to_ns(now);
+      // RAW drives both the application clock and follower. MONOTONIC is used
+      // only by the supported sleep API; never carry its NTP slew into the PLL.
+      timespec mono_before{}, raw_now{}, mono_after{};
+      if (clock_gettime(CLOCK_MONOTONIC, &mono_before) != 0 ||
+        clock_gettime(CLOCK_MONOTONIC_RAW, &raw_now) != 0 ||
+        clock_gettime(CLOCK_MONOTONIC, &mono_after) != 0)
+      {
+        context.thread_failed.store(true);
+        break;
+      }
+      const auto now_ns = timespec_to_ns(raw_now);
       if (next_ns <= now_ns) {
         context.follower_schedule_failed = true;
         if (context.follower_failure_cycle == 0) {context.follower_failure_cycle = context.cycle_count;}
@@ -1653,8 +1715,16 @@ void KaixuanCanSystem::cyclic_loop(MasterContext & context)
         virtual_schedule_ns += advance;
         next_ns += advance;
       }
-      wake_time.tv_sec = static_cast<time_t>(next_ns / 1000000000ULL);
-      wake_time.tv_nsec = static_cast<long>(next_ns % 1000000000ULL);
+      std::uint64_t sleep_deadline_ns = 0;
+      if (!dc_raw_deadline_to_monotonic(next_ns, now_ns,
+        timespec_to_ns(mono_before), timespec_to_ns(mono_after), sleep_deadline_ns))
+      {
+        context.thread_failed.store(true);
+        break;
+      }
+      wake_time.tv_sec = static_cast<time_t>(sleep_deadline_ns / 1000000000ULL);
+      wake_time.tv_nsec = static_cast<long>(sleep_deadline_ns % 1000000000ULL);
+      if (trace_active) {context.dc_trace_row.next_host_deadline_ns = next_ns;}
     } else {
       add_ns(wake_time, cycle_time_ns_);
       if (timespec_to_ns(now) >
@@ -1883,7 +1953,7 @@ void KaixuanCanSystem::exchange_process_data(
     }
     std::uint16_t control_word = EC_READ_U16(data + axis.control_word);
     if (!axis_enable_allowed) {
-      control_word = 0x0006;
+      control_word = disabled_control_word();
       axis.enable_settle.reset();
     } else switch (decode_cia402_state(status_word))
     {
@@ -1964,15 +2034,15 @@ void KaixuanCanSystem::exchange_process_data(
         auto & diagnostic = snapshot.axes[joint % kJointsPerArm];
         const auto offset = kCaptureHeader + (joint % kJointsPerArm) * kCaptureAxisWidth;
         frame[offset + 7] |= capture_transition(diagnostic.status_word, diagnostic.status_word,
-          diagnostic.control_word, 6, diagnostic.error_code, diagnostic.error_code, false);
+          diagnostic.control_word, disabled_control_word(), diagnostic.error_code, diagnostic.error_code, false);
         EC_WRITE_S16(data + axis.target_torque, 0);
-        EC_WRITE_U16(data + axis.control_word, 6);
+        EC_WRITE_U16(data + axis.control_word, disabled_control_word());
         axis.enable_settle.reset();
         diagnostic.commanded_effort_nm = 0;
         diagnostic.target_torque_raw = 0;
-        diagnostic.control_word = 6;
+        diagnostic.control_word = disabled_control_word();
         diagnostic.torque_guard_fault = static_cast<unsigned>(torque_safety_[joint].fault);
-        frame[offset + 5] = 6;
+        frame[offset + 5] = disabled_control_word();
       }
     }
   }
@@ -2042,16 +2112,15 @@ void KaixuanCanSystem::poll_dc_reference_follower(
   input.cycle_id = context.cycle_count;
   input.matched_send_cycle_id = context.reference_sample_cycle;
   input.host_virtual_send_ns = context.reference_sample_virtual_ns;
-  input.host_mono_send_ns = context.reference_sample_mono_ns;
+  input.host_mono_send_ns = context.reference_sample_host_ns;
   input.now_mono_ns = now_ns;
   const bool fresh_bus = domain_state.wc_state == EC_WC_COMPLETE && context.probe_bus_ready;
   input.drives_disabled = fresh_bus;
   for (const auto & axis : context.axes) {
     const auto * data = context.domain_data;
-    const auto state = EC_READ_U16(data + axis.status_word) & 0x006fU;
-    input.drives_disabled = input.drives_disabled &&
-      EC_READ_U16(data + axis.control_word) == 0x0006 &&
-      (state == 0x0021 || state == 0x0040) && EC_READ_U16(data + axis.error_code) == 0;
+    input.drives_disabled = input.drives_disabled && cia402_disabled_feedback(
+      EC_READ_U16(data + axis.control_word), EC_READ_U16(data + axis.status_word),
+      EC_READ_U16(data + axis.error_code));
   }
   // Read the previous FRMW before this cycle requeues the shared datagram.
   // Complete PDO WKC alone does not guarantee receipt of this other datagram.
@@ -2117,10 +2186,9 @@ void KaixuanCanSystem::poll_dc_startup_reset(
   input.fresh_disabled = domain_state.wc_state == EC_WC_COMPLETE && context.probe_bus_ready;
   for (const auto & axis : context.axes) {
     const auto * data = context.domain_data;
-    const auto state = EC_READ_U16(data + axis.status_word) & 0x006fU;
-    input.fresh_disabled = input.fresh_disabled &&
-      EC_READ_U16(data + axis.control_word) == 0x0006 &&
-      (state == 0x0021 || state == 0x0040) && EC_READ_U16(data + axis.error_code) == 0;
+    input.fresh_disabled = input.fresh_disabled && cia402_disabled_feedback(
+      EC_READ_U16(data + axis.control_word), EC_READ_U16(data + axis.status_word),
+      EC_READ_U16(data + axis.error_code));
   }
   if (context.dc_reset_action.kind != Reset::Kind::None) {
     input.reply.token = context.dc_reset_action.token;
@@ -2252,8 +2320,18 @@ void KaixuanCanSystem::publish_diagnostics()
 {
   decltype(diagnostic_snapshots_) snapshots;
   {
-    std::unique_lock<std::mutex> lock(io_mutex_, std::try_to_lock);
-    if (!lock.owns_lock()) {return;}
+    // This is the non-RT diagnostic executor. A single collision with the
+    // cyclic exchange previously discarded an entire 200 ms publication.
+    // Retry briefly without holding the mutex; never sleep in the PDO loop.
+    std::unique_lock<std::mutex> lock(io_mutex_, std::defer_lock);
+    for (unsigned attempt = 0; attempt < 4; ++attempt) {
+      if (lock.try_lock()) {break;}
+      if (attempt < 3) {
+        ++diagnostic_snapshot_retries_;
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+      }
+    }
+    if (!lock.owns_lock()) {++diagnostic_snapshot_drops_; return;}
     snapshots = diagnostic_snapshots_;
   }
   diagnostic_msgs::msg::DiagnosticArray message;
@@ -2281,6 +2359,8 @@ void KaixuanCanSystem::publish_diagnostics()
       bus.message = "DC clock qualification failed; drives disabled";
     }
     add(bus, "sample_steady_ns", snapshot.sample_steady_ns);
+    add(bus, "diagnostic_snapshot_retries", diagnostic_snapshot_retries_);
+    add(bus, "diagnostic_snapshot_drops", diagnostic_snapshot_drops_);
     add(bus, "cycle_count", snapshot.cycle_count);
     add(bus, "working_counter", snapshot.working_counter);
     add(bus, "wc_state", snapshot.wc_state);
@@ -2307,6 +2387,8 @@ void KaixuanCanSystem::publish_diagnostics()
     add(bus, "dc_follower_filter_alpha", snapshot.dc_follower_config.filter_alpha);
     add(bus, "dc_follower_fine_entry_filtered_ns", snapshot.dc_follower_config.fine_entry_filtered_ns);
     add(bus, "dc_follower_bounded_handoff", snapshot.dc_follower_config.bumpless_fine_entry);
+    add(bus, "dc_follower_acquisition_rate_feedforward", snapshot.dc_follower_config.acquisition_rate_feedforward);
+    add(bus, "dc_follower_acquisition_rate_alpha", snapshot.dc_follower_config.acquisition_rate_alpha);
     add(bus, "dc_follower_ready", snapshot.dc_follower_ready);
     add(bus, "dc_follower_failed", snapshot.dc_follower_failed);
     add(bus, "dc_follower_locked", snapshot.dc_follower.locked);
@@ -2395,14 +2477,14 @@ void KaixuanCanSystem::publish_diagnostics()
         if (data.torque_guard_fault && trip.valid) {
           RCLCPP_ERROR(logger_,
             "CST guard %s fault=%u (%s): position=%.3fdeg, speed=%.3fdeg/s (limit %.3f), "
-            "relative_displacement=%.3fdeg (limit %.3f); target torque=0, CW6, stop latched",
+            "relative_displacement=%.3fdeg (limit %.3f); target torque=0, CW%u, stop latched",
             status.name.c_str(), data.torque_guard_fault, TorqueSafety::fault_name(reason),
             radians_to_degrees(trip.input.position), radians_to_degrees(trip.input.velocity),
             radians_to_degrees(limits.max_velocity_rad_s), radians_to_degrees(trip.displacement),
-            radians_to_degrees(limits.max_displacement_rad));
+            radians_to_degrees(limits.max_displacement_rad), disabled_control_word());
         } else if (data.torque_guard_fault) {
-          RCLCPP_ERROR(logger_, "CST guard %s fault=%u (%s); target torque=0, CW6, stop latched",
-            status.name.c_str(), data.torque_guard_fault, TorqueSafety::fault_name(reason));
+          RCLCPP_ERROR(logger_, "CST guard %s fault=%u (%s); target torque=0, CW%u, stop latched",
+            status.name.c_str(), data.torque_guard_fault, TorqueSafety::fault_name(reason), disabled_control_word());
         }
       }
       add(status, "sample_steady_ns", snapshot.sample_steady_ns);

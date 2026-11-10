@@ -1,0 +1,108 @@
+# Experimental native 1 kHz LQI baseline. Moving stick-slip remains unresolved.
+# Reproduces native_j3_friction_01 / native_pid_baseline_01 with factory drive PI.
+control_method: tvlqi
+target_joints_deg:
+- -20
+- 20
+- 30
+- 50
+- -10
+- -20
+- 0
+displacement_world_m:
+- 0.0
+- 0.0
+- 0.1
+end_effector_frame: left_ee
+control_hz: 500.0
+execution_thread:
+  cpu: 5
+  fifo_priority: 20
+approach_s: 30.0
+line_s: 10.0
+gravity_ramp_s: 5.0
+settle_timeout_s: 30.0
+settle_duration_s: 1.0
+settle_position_deg: 0.5
+settle_velocity_deg_s: 0.5
+final_hold_s: 3.0
+integral_limit_nm:
+- 7.0
+- 4.0
+- 12.0
+- 12.0
+- 0.7
+- 0.7
+- 0.5
+lqr:
+  linearization_period_s: 0.05
+  ee_position_scale_m: 0.003
+  ee_orientation_scale_rad: 0.01
+  joint_position_scale_rad:
+  - 0.02
+  - 0.02
+  - 0.005
+  - 0.005
+  - 0.005
+  - 0.005
+  - 0.03
+  joint_velocity_scale_rad_s:
+  - 0.2
+  - 0.2
+  - 0.2
+  - 0.08
+  - 0.15
+  - 0.15
+  - 0.5
+  integrated_error_scale_rad_s:
+  - 0.03
+  - 0.03
+  - 0.01
+  - 0.005
+  - 0.01
+  - 0.01
+  - 0.05
+  torque_scale_nm:
+  - 6.0
+  - 4.0
+  - 4.0
+  - 2.0
+  - 0.4
+  - 0.4
+  - 0.25
+  effort_weight: 1.0
+  input_dynamics:
+    joint: left_joint4
+    delay_steps: 3
+    time_constant_s: 0.0034
+    state_effort_weight: 0.01
+  runtime_hz: 1000.0
+velocity_filter_s: 0.0
+max_initial_position_deg: 10.0
+armature_kg_m2:
+- 0.0
+- 0.0
+- 0.2
+- 0.2
+- 0.02
+- 0.04
+- 0.02
+max_feedback_age_s: 0.05
+max_diagnostics_age_s: 0.7
+max_loop_gap_s: 0.05
+max_reference_speed_deg_s: 10.0
+max_actual_speed_deg_s: 45.0
+max_tracking_error_deg: 8.0
+acceptance_final_position_m: 0.005
+acceptance_lateral_error_m: 0.005
+acceptance_orientation_deg: 1.0
+reference_friction_nm:
+- 0
+- 0
+- 2.0
+- 2.5
+- 0
+- 0
+- 0
+reference_friction_transition_rad_s: 0.00349
+runtime_backend: ros2_control

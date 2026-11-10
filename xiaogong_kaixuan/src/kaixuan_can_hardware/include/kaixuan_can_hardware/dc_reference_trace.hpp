@@ -34,6 +34,7 @@ public:
   struct Row {
     std::uint64_t cycle{0}, wake_mono_ns{0}, scheduled_mono_ns{0};
     std::uint64_t application_ns{0}, previous_send_cycle{0};
+    std::uint64_t wake_host_ns{0}, previous_send_host_ns{0}, next_host_deadline_ns{0};
     std::uint64_t previous_send_mono_ns{0}, previous_send_virtual_ns{0};
     RawBracket previous_raw{}, current_raw{};
     std::uint64_t getter_before_ns{0}, getter_after_ns{0};
@@ -81,7 +82,7 @@ public:
   void write_csv(std::ostream & out, unsigned master_id) const
   {
     out << std::setprecision(17)
-      << "# schema,dc_reference_trace_v1\n# master," << master_id
+      << "# schema,dc_reference_trace_v2\n# master," << master_id
       << "\n# capacity," << kCapacity << "\n# row_bytes," << sizeof(Row)
       << "\n# retained_rows," << size_ << "\n# total_rows," << total_
       << "\n# overwritten_rows," << overwritten_ << "\n# truncated," << (overwritten_ != 0)
@@ -106,7 +107,7 @@ public:
     for (unsigned axis = 0; axis < 7; ++axis) {
       out << ",axis" << axis << "_control,axis" << axis << "_status,axis" << axis << "_error";
     }
-    out << '\n';
+    out << ",wake_host_ns,previous_send_host_ns,next_host_deadline_ns\n";
     for (std::size_t i = 0; i < size_; ++i) {
       const auto & r = chronological(i);
       out << r.cycle << ',' << r.wake_mono_ns << ',' << r.scheduled_mono_ns << ',' << r.application_ns
@@ -124,7 +125,7 @@ public:
       for (unsigned axis = 0; axis < 7; ++axis) {
         out << ',' << r.control[axis] << ',' << r.status[axis] << ',' << r.error[axis];
       }
-      out << '\n';
+      out << ',' << r.wake_host_ns << ',' << r.previous_send_host_ns << ',' << r.next_host_deadline_ns << '\n';
     }
   }
 

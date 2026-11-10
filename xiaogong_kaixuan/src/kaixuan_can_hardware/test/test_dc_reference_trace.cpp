@@ -77,12 +77,13 @@ int main()
     while (std::getline(fields, cell, ',')) {cells.push_back(cell);}
     csv_rows.push_back(cells);
   }
-  CHECK(csv_rows.size() == 2 && csv_rows[0].size() == 65 && csv_rows[1].size() == 65);
+  CHECK(csv_rows.size() == 2 && csv_rows[0].size() == 68 && csv_rows[1].size() == 68);
   CHECK(csv_rows[0][0] == "cycle" && csv_rows[1][0] == "1");
   CHECK(csv_rows[0][20] == "residual_ns" && csv_rows[1][20] == "-20215");
   CHECK(csv_rows[0][21] == "filtered_ns" && std::stod(csv_rows[1][21]) == row.filtered_ns);
   CHECK(csv_rows[0][14] == "previous_raw_mono_before_ns" && csv_rows[1][14] == "100");
   CHECK(csv_rows[0][64] == "axis6_error" && csv_rows[1][64] == "0");
+  CHECK(csv_rows[0][66] == "previous_send_host_ns");
   std::cout << "PASS dc_reference_trace " << checks << " checks; row=" << sizeof(Ring::Row)
             << " ring=" << sizeof(Ring) << " bytes\n";
 }

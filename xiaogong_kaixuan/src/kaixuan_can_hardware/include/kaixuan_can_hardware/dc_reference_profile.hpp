@@ -13,6 +13,7 @@ inline DcReferenceFollower::Config reference_follow_config()
   config.integral_gain = 0.000075;
   config.fine_entry_filtered_ns = 60000;
   config.bumpless_fine_entry = true;
+  config.acquisition_rate_feedforward = true;
   return config;
 }
 }  // namespace kaixuan_can_hardware

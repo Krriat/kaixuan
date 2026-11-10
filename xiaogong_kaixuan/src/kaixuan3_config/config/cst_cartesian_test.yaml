@@ -1,0 +1,34 @@
+# All positions/velocities/torques use ROS output-joint coordinates: rad, rad/s, N.m.
+# J1 has empirical pose tests; other gains remain initial engineering values.
+# Whole-path accuracy is not accepted; see docs/CST_PID_TUNING.md.
+target_joints_deg: [-20, 20, 30, 50, -10, -20, 0]
+displacement_world_m: [0.0, 0.0, 0.10]
+end_effector_frame: left_ee
+control_hz: 200.0
+approach_s: 30.0
+line_s: 20.0
+gravity_ramp_s: 5.0
+settle_timeout_s: 30.0
+settle_duration_s: 1.0
+settle_position_deg: 0.5
+settle_velocity_deg_s: 0.5
+final_hold_s: 3.0
+kp_nm_per_rad: [200.0, 80.0, 50.0, 40.0, 8.0, 8.0, 6.0]
+kd_nm_s_per_rad: [32.0, 12.0, 12.0, 10.0, 0.8, 1.0, 0.8]
+ki_nm_per_rad_s: [16.0, 14.0, 10.0, 8.0, 1.0, 1.0, 0.6]
+integral_limit_nm: [7.0, 4.0, 12.0, 12.0, 0.7, 0.7, 0.5]
+velocity_filter_s: 0.005
+# A small near-vertical startup envelope. The zero-enable drift guard is 2 deg.
+max_initial_position_deg: 10.0
+# Additional output-side rotor inertia, applied to M/RNEA once. Still an estimate.
+armature_kg_m2: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.02]
+# Experiment abort criteria; existing hardware 90 deg/s and 120 deg guards stay intact.
+max_feedback_age_s: 0.05
+max_diagnostics_age_s: 0.7  # Hardware diagnostics publish at 5 Hz.
+max_loop_gap_s: 0.05
+max_reference_speed_deg_s: 10.0
+max_actual_speed_deg_s: 45.0
+max_tracking_error_deg: 8.0
+acceptance_final_position_m: 0.005
+acceptance_lateral_error_m: 0.005
+acceptance_orientation_deg: 1.0

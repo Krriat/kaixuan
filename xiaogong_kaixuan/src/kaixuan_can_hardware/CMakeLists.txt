@@ -82,6 +82,14 @@ ament_target_dependencies(kaixuan_torque_controller controller_interface hardwar
   rclcpp rclcpp_lifecycle pluginlib realtime_tools std_msgs)
 pluginlib_export_plugin_description_file(controller_interface torque_controller_plugins.xml)
 
+add_library(kaixuan_lqr_torque_controller SHARED src/lqr_torque_controller.cpp)
+target_include_directories(kaixuan_lqr_torque_controller PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_compile_features(kaixuan_lqr_torque_controller PUBLIC cxx_std_17)
+ament_target_dependencies(kaixuan_lqr_torque_controller controller_interface hardware_interface
+  rclcpp rclcpp_lifecycle pluginlib realtime_tools std_msgs)
+pluginlib_export_plugin_description_file(controller_interface lqr_torque_controller_plugins.xml)
+
 # Prefer a normal ROS installation; also support the supplied rootless installer.
 set(KAIXUAN_PINOCCHIO_PREFIX "$ENV{HOME}/.local/share/kaixuan/pinocchio/opt/ros/humble"
   CACHE PATH "Optional private Pinocchio prefix")
@@ -110,7 +118,7 @@ else()
   message(WARNING "Pinocchio unavailable: gravity controller omitted. Run scripts/install_pinocchio.sh and rebuild.")
 endif()
 
-install(TARGETS ${PROJECT_NAME} kaixuan_torque_controller
+install(TARGETS ${PROJECT_NAME} kaixuan_torque_controller kaixuan_lqr_torque_controller
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -163,6 +171,25 @@ if(BUILD_TESTING)
     rclcpp rclcpp_lifecycle realtime_tools std_msgs)
   add_test(NAME torque_controller COMMAND test_torque_controller)
   set_tests_properties(torque_controller PROPERTIES ENVIRONMENT "ROS_LOCALHOST_ONLY=1;ROS_DOMAIN_ID=217")
+  add_executable(test_lqr_servo test/test_lqr_servo.cpp)
+  target_include_directories(test_lqr_servo PRIVATE include)
+  target_compile_features(test_lqr_servo PRIVATE cxx_std_17)
+  add_test(NAME lqr_servo_fixture COMMAND /usr/bin/python3
+    ${CMAKE_CURRENT_SOURCE_DIR}/../kaixuan3_config/test/native_lqr_fixture.py ${CMAKE_CURRENT_BINARY_DIR}/native_lqr_fixture.bin)
+  set_tests_properties(lqr_servo_fixture PROPERTIES FIXTURES_SETUP lqr_fixture ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
+  add_test(NAME lqr_servo COMMAND test_lqr_servo ${CMAKE_CURRENT_BINARY_DIR}/native_lqr_fixture.bin)
+  set_tests_properties(lqr_servo PROPERTIES FIXTURES_REQUIRED lqr_fixture)
+  add_test(NAME lqr_multi_fixture COMMAND /usr/bin/python3
+    ${CMAKE_CURRENT_SOURCE_DIR}/../kaixuan3_config/test/native_lqr_fixture.py ${CMAKE_CURRENT_BINARY_DIR}/native_lqr_multi_fixture.bin multi)
+  set_tests_properties(lqr_multi_fixture PROPERTIES FIXTURES_SETUP lqr_multi_fixture ENVIRONMENT "OPENBLAS_NUM_THREADS=1")
+  add_test(NAME lqr_multi_servo COMMAND test_lqr_servo ${CMAKE_CURRENT_BINARY_DIR}/native_lqr_multi_fixture.bin)
+  set_tests_properties(lqr_multi_servo PROPERTIES FIXTURES_REQUIRED lqr_multi_fixture)
+  add_executable(test_lqr_controller test/test_lqr_controller.cpp)
+  target_link_libraries(test_lqr_controller kaixuan_lqr_torque_controller)
+  ament_target_dependencies(test_lqr_controller controller_interface hardware_interface
+    rclcpp rclcpp_lifecycle realtime_tools std_msgs)
+  add_test(NAME lqr_controller COMMAND test_lqr_controller)
+  set_tests_properties(lqr_controller PROPERTIES ENVIRONMENT "ROS_LOCALHOST_ONLY=1;ROS_DOMAIN_ID=218")
   add_executable(test_torque_interfaces test/test_torque_interfaces.cpp)
   target_link_libraries(test_torque_interfaces ${PROJECT_NAME})
   ament_target_dependencies(test_torque_interfaces hardware_interface rclcpp rclcpp_lifecycle std_msgs
@@ -172,6 +199,10 @@ if(BUILD_TESTING)
   target_include_directories(test_dc_reference_trace PRIVATE include)
   target_compile_features(test_dc_reference_trace PRIVATE cxx_std_17)
   add_test(NAME dc_reference_trace COMMAND test_dc_reference_trace)
+  add_executable(test_dc_clock_bridge test/test_dc_clock_bridge.cpp)
+  target_include_directories(test_dc_clock_bridge PRIVATE include)
+  target_compile_features(test_dc_clock_bridge PRIVATE cxx_std_17)
+  add_test(NAME dc_clock_bridge COMMAND test_dc_clock_bridge)
   add_executable(test_dc_reference_fast_profile test/test_dc_reference_fast_profile.cpp)
   target_include_directories(test_dc_reference_fast_profile PRIVATE include)
   target_compile_features(test_dc_reference_fast_profile PRIVATE cxx_std_17)

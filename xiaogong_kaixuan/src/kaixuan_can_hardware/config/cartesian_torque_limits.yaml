@@ -1,0 +1,56 @@
+# Dedicated closed-loop motion profile. Position/velocity bounds match gravity_limits.yaml.
+# left_joint1/3/4 have user-requested 20 Nm limits; other amplitude bounds are unchanged.
+# Faster torque slew lets velocity feedback reduce drive
+# torque promptly after static friction breaks away. Startup still ramps for 5s.
+# The first real test with 4 Nm/s slew could not remove J3 torque fast enough.
+kgu20: &large
+  rated_torque_nm: 68.0
+  torque_command_units_per_nm: 14.705882352941176
+  effort_limit_nm: 13.6
+  effort_slew_nm_s: 136.0
+  max_velocity_rad_s: 1.5707963267948966
+  max_displacement_rad: 2.0943951023931953
+  min_position_rad: -3.14
+  max_position_rad: 3.14
+kgu17: &medium
+  rated_torque_nm: 40.0
+  torque_command_units_per_nm: 25.0
+  effort_limit_nm: 8.0
+  effort_slew_nm_s: 160.0
+  max_velocity_rad_s: 1.5707963267948966
+  max_displacement_rad: 2.0943951023931953
+  min_position_rad: -3.14
+  max_position_rad: 3.14
+kgu11: &small
+  rated_torque_nm: 15.0
+  torque_command_units_per_nm: 66.66666666666667
+  effort_limit_nm: 3.0
+  effort_slew_nm_s: 60.0
+  max_velocity_rad_s: 1.5707963267948966
+  max_displacement_rad: 2.0943951023931953
+  min_position_rad: -3.14
+  max_position_rad: 3.14
+joints:
+  right_joint1: *large
+  right_joint2: *large
+  right_joint3: *medium
+  right_joint4: *medium
+  right_joint5: *small
+  right_joint6: *small
+  right_joint7: *small
+  left_joint1:
+    <<: *large
+    effort_limit_nm: 20.0
+  left_joint2: *large
+  left_joint3:
+    <<: *medium
+    effort_limit_nm: 20.0
+  left_joint4:
+    <<: *medium
+    effort_limit_nm: 20.0
+  left_joint5:
+    <<: *small
+    min_position_rad: -3.141592653589793
+    max_position_rad: 3.141592653589793
+  left_joint6: *small
+  left_joint7: *small

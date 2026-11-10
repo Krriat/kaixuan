@@ -1,0 +1,249 @@
+{
+  "date": "2026-11-10T09:08:48.823199+08:00",
+  "reference": "User explicitly confirmed current physical right arm matches URDF right_joint1..7 all zero.",
+  "sampling_method": "Read-only SDO 0x6064, five sweeps; 0x6041, 0x603F, 0x6040 read-only. No control process, mode changes, enables or motion.",
+  "sample_timestamps": [
+    "2026-11-10T09:08:48.371511+08:00",
+    "2026-11-10T09:08:48.483918+08:00",
+    "2026-11-10T09:08:48.598027+08:00",
+    "2026-11-10T09:08:48.710620+08:00",
+    "2026-11-10T09:08:48.823199+08:00"
+  ],
+  "model_path": "src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
+  "model_sha256": "a42df807c6bc0a8c9c23cbb95d037c758b841b02f67b69dea428433e1a977a71",
+  "formula": "q_deg = direction * (counts * 360 / (1048576 * gear_ratio) - comp_deg)",
+  "joints": [
+    {
+      "joint": "right_joint1",
+      "master": 0,
+      "slave": 0,
+      "encoder_samples_counts": [
+        1048387,
+        1048387,
+        1048387,
+        1048387,
+        1048388
+      ],
+      "encoder_counts": 1048387,
+      "gear_ratio": 101,
+      "direction": -1,
+      "old_comp_deg": 8.6192775,
+      "old_feedback_deg": 5.055563519806816,
+      "target_deg": 0.0,
+      "new_comp_deg": 3.56371398,
+      "sampling_drift_deg": 3.399235187190594e-06,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": -1.9318502353371514e-10,
+      "inverse_counts": 1048387
+    },
+    {
+      "joint": "right_joint2",
+      "master": 0,
+      "slave": 1,
+      "encoder_samples_counts": [
+        -7592237,
+        -7592237,
+        -7592237,
+        -7592237,
+        -7592237
+      ],
+      "encoder_counts": -7592237,
+      "gear_ratio": 101,
+      "direction": 1,
+      "old_comp_deg": -115.05901903,
+      "old_feedback_deg": 89.25121987010965,
+      "target_deg": 0.0,
+      "new_comp_deg": -25.80779916,
+      "sampling_drift_deg": 0.0,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": 1.0964384955514106e-10,
+      "inverse_counts": -7592237
+    },
+    {
+      "joint": "right_joint3",
+      "master": 0,
+      "slave": 2,
+      "encoder_samples_counts": [
+        -35949920,
+        -35949920,
+        -35949920,
+        -35949920,
+        -35949920
+      ],
+      "encoder_counts": -35949920,
+      "gear_ratio": 81,
+      "direction": -1,
+      "old_comp_deg": -151.79905785,
+      "old_feedback_deg": 0.576566064930546,
+      "target_deg": 0.0,
+      "new_comp_deg": -152.37562391,
+      "sampling_drift_deg": 0.0,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": 4.930541308567626e-09,
+      "inverse_counts": -35949920
+    },
+    {
+      "joint": "right_joint4",
+      "master": 0,
+      "slave": 3,
+      "encoder_samples_counts": [
+        11598049,
+        11598049,
+        11598049,
+        11598049,
+        11598049
+      ],
+      "encoder_counts": 11598049,
+      "gear_ratio": 81,
+      "direction": -1,
+      "old_comp_deg": 43.58607398,
+      "old_feedback_deg": -5.572865805427519,
+      "target_deg": 0.0,
+      "new_comp_deg": 49.15893979,
+      "sampling_drift_deg": 0.0,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": 4.572477507736039e-09,
+      "inverse_counts": 11598049
+    },
+    {
+      "joint": "right_joint5",
+      "master": 0,
+      "slave": 4,
+      "encoder_samples_counts": [
+        50205486,
+        50205486,
+        50205486,
+        50205486,
+        50205486
+      ],
+      "encoder_counts": 50205486,
+      "gear_ratio": 101,
+      "direction": -1,
+      "old_comp_deg": 125.67501068,
+      "old_feedback_deg": -44.98524392120474,
+      "target_deg": 0.0,
+      "new_comp_deg": 170.6602546,
+      "sampling_drift_deg": 0.0,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": -1.204739419335965e-09,
+      "inverse_counts": 50205486
+    },
+    {
+      "joint": "right_joint6",
+      "master": 0,
+      "slave": 5,
+      "encoder_samples_counts": [
+        -1808350,
+        -1808350,
+        -1808350,
+        -1808350,
+        -1808350
+      ],
+      "encoder_counts": -1808350,
+      "gear_ratio": 101,
+      "direction": -1,
+      "old_comp_deg": -9.17790101,
+      "old_feedback_deg": -3.030894059243889,
+      "target_deg": 0.0,
+      "new_comp_deg": -6.14700695,
+      "sampling_drift_deg": 0.0,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": 7.561107295828151e-10,
+      "inverse_counts": -1808350
+    },
+    {
+      "joint": "right_joint7",
+      "master": 0,
+      "slave": 6,
+      "encoder_samples_counts": [
+        -8058421,
+        -8058421,
+        -8058421,
+        -8058421,
+        -8058421
+      ],
+      "encoder_counts": -8058421,
+      "gear_ratio": 101,
+      "direction": 1,
+      "old_comp_deg": -0.02567102,
+      "old_feedback_deg": -27.366797196395613,
+      "target_deg": 0.0,
+      "new_comp_deg": -27.39246822,
+      "sampling_drift_deg": 0.0,
+      "status_word": 561,
+      "error_code": 0,
+      "control_word": 6,
+      "reference_feedback_deg": 3.6043878992586542e-09,
+      "inverse_counts": -8058421
+    }
+  ],
+  "sampling_max_drift_deg": 3.399235187190594e-06,
+  "motor_counts_per_revolution": 1048576,
+  "artifact_directory": "/home/agxorin/cxl/kaixuan/xiaogong_kaixuan/log/right_arm_zero_20261110T010849Z",
+  "master_state": "Master0 Idle, inactive; seven slaves PREOP",
+  "validation": {
+    "five_read_only_sample_sweeps": true,
+    "max_reference_residual_deg": 4.930541308567626e-09,
+    "inverse_counts_roundtrip": true,
+    "left_arm_defaults_preserved": true,
+    "gear_ratios_preserved": true,
+    "existing_right_directions_preserved": true,
+    "physical_direction_tested": false,
+    "physical_motion_tested": false,
+    "installed_launch_matches_source": true,
+    "xacro_argument_propagation": true,
+    "python_syntax": true,
+    "installed_launch_show_args": true,
+    "read_only_recheck": [
+      {
+        "joint": "right_joint1",
+        "counts": 1048388,
+        "new_feedback_deg": -3.3994283725746754e-06
+      },
+      {
+        "joint": "right_joint2",
+        "counts": -7592238,
+        "new_feedback_deg": -3.399125542813408e-06
+      },
+      {
+        "joint": "right_joint3",
+        "counts": -35949921,
+        "new_feedback_deg": 4.2434830618276465e-06
+      },
+      {
+        "joint": "right_joint4",
+        "counts": 11598048,
+        "new_feedback_deg": 4.243124998026815e-06
+      },
+      {
+        "joint": "right_joint5",
+        "counts": 50205486,
+        "new_feedback_deg": -1.204739419335965e-09
+      },
+      {
+        "joint": "right_joint6",
+        "counts": -1808345,
+        "new_feedback_deg": -1.699541982524977e-05
+      },
+      {
+        "joint": "right_joint7",
+        "counts": -8058423,
+        "new_feedback_deg": -6.794865985426668e-06
+      }
+    ],
+    "read_only_recheck_time": "2026-11-10T09:11:08.399378+08:00"
+  },
+  "scope": "MoveIt bringup right-arm default comp0..comp6 only. Other launch defaults are not updated by this calibration."
+}

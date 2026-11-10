@@ -3,6 +3,7 @@
   <!-- Real-hardware ros2_control wrapper for dual-arm EtherCAT control. -->
   <xacro:arg name="control_mode" default="csp" />
   <xacro:arg name="stop_cst_group_on_fault" default="false" />
+  <xacro:arg name="cst_disabled_control_word" default="6" />
   <xacro:arg name="cst_joints" default="" />
   <xacro:arg name="effort_write_timeout_ms" default="100" />
   <xacro:arg name="max_velocity_rad_s" default="" />
@@ -84,6 +85,7 @@
       <xacro:unless value="$(arg use_mock_hardware)"><plugin>kaixuan_can_hardware/KaixuanCanSystem</plugin></xacro:unless>
       <param name="control_mode">$(arg control_mode)</param>
       <param name="stop_cst_group_on_fault">$(arg stop_cst_group_on_fault)</param>
+      <param name="cst_disabled_control_word">$(arg cst_disabled_control_word)</param>
       <param name="cst_joints">$(arg cst_joints)</param>
       <param name="effort_write_timeout_ms">$(arg effort_write_timeout_ms)</param>
       <param name="cycle_time_ns">$(arg cycle_time_ns)</param>
@@ -156,6 +158,7 @@
         <param name="torque_command_units_per_nm">${torque_parameters[name]['torque_command_units_per_nm']}</param>
         <param name="effort_limit_nm">${torque_parameters[name]['effort_limit_nm']}</param>
         <param name="effort_slew_nm_s">${torque_parameters[name]['effort_slew_nm_s']}</param>
+        <param name="effort_release_slew_nm_s">${torque_parameters[name].get('effort_release_slew_nm_s', 0.0)}</param>
         <param name="max_velocity_rad_s">${float('$(arg max_velocity_rad_s)') if '$(arg max_velocity_rad_s)' else torque_parameters[name]['max_velocity_rad_s']}</param>
         <param name="max_displacement_rad">${float('$(arg max_displacement_deg)') * pi / 180.0 if '$(arg max_displacement_deg)' else torque_parameters[name]['max_displacement_rad']}</param>
         <param name="min_position_rad">${torque_parameters[name]['min_position_rad']}</param>

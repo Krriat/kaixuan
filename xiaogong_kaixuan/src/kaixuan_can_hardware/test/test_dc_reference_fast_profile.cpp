@@ -19,24 +19,29 @@ using kaixuan_can_hardware::reference_follow_config;
 struct Simulation
 {
   static constexpr std::uint64_t period = 1000000, origin = 20000000000000ULL;
-  const Follower::Config config{reference_follow_config()};
+  const Follower::Config config;
   Follower follower{config};
   Follower::Output result{};
   std::uint64_t cycle{0}, grid{origin}, mono{origin + 30000}, virtual_send{mono};
   std::uint32_t ref32{0};
-  double rate_ppm{0}, offset_ns{0};
+  double rate_ppm{0}, offset_ns{0}, noise_ns{0};
+  mutable std::uint32_t rng{7};
   bool disabled{true}, saw_saturated_seed{false};
   unsigned handoffs{0};
   std::int64_t last_correction{0};
   double fine_raw_peak{0};
 
-  Simulation(double offset = 120000, double ppm = 0) : rate_ppm(ppm), offset_ns(offset)
+  Simulation(double offset = 120000, double ppm = 0,
+    Follower::Config profile = reference_follow_config())
+  : config(profile), follower(config), rate_ppm(ppm), offset_ns(offset)
   {ref32 = reference(mono);}
 
   std::uint32_t reference(std::uint64_t host) const
   {
+    rng = rng * 1664525U + 1013904223U;
+    const double noise = (double(rng) / 4294967295.0 * 2 - 1) * noise_ns;
     return static_cast<std::uint32_t>(std::int64_t(double(origin) +
-      double(host - origin) * (1 + rate_ppm * 1e-6) + offset_ns));
+      double(host - origin) * (1 + rate_ppm * 1e-6) + offset_ns + noise));
   }
 
   void change_rate(double ppm)
@@ -72,7 +77,7 @@ struct Simulation
       CHECK(disabled && !result.locked && result.calibration_delta_ns == 0);
       const double seed = double(last_correction) -
         config.proportional_gain * result.filtered_error_ns;
-      CHECK(result.frequency_ns_per_cycle == std::clamp(seed, -1000., 1000.));
+      CHECK(std::abs(result.frequency_ns_per_cycle - std::clamp(seed, -1000., 1000.)) < 1e-8);
       saw_saturated_seed = saw_saturated_seed || std::abs(seed) > 1000;
       // A clipped seed is not perfectly bumpless; actual output still has the
       // same hard bound and 5 ns/cycle slew checked above.
@@ -115,6 +120,8 @@ static void profile_keeps_protection_and_baseline_defaults()
   CHECK(fast.raw_limit_ns == 100000 && fast.filtered_limit_ns == 5000);
   CHECK(fast.runtime_bad_quality_samples == 100 && fast.holdover_ns == 20000000);
   CHECK(fast.correction_limit_ns == 1000 && fast.slew_ns == 5);
+  CHECK(fast.acquisition_rate_feedforward && !baseline.acquisition_rate_feedforward);
+  CHECK(fast.acquisition_timeout_ns == baseline.acquisition_timeout_ns && fast.settle_disabled_ns == baseline.settle_disabled_ns);
 }
 
 static void startup_and_bounded_saturated_handoff()
@@ -162,13 +169,39 @@ static void original_missing_sample_protection_stays_latched()
   sim.check_latched(Follower::Failure::SamplesLost);
 }
 
+static void acquisition_covers_cold_clock_rates()
+{
+  for (double offset : {-2000000., -150000., 150000., 2000000.}) {
+    for (double rate : {-600., -500., -300., 0., 300., 500., 600.}) {
+      for (double noise : {0., 3000.}) {
+        for (unsigned seed : {7U, 41U, 8123U}) {
+          Simulation sim(offset, rate);
+          sim.noise_ns = noise;
+          sim.rng = seed;
+          sim.lock();
+          CHECK(sim.result.acquisition_elapsed_ns <= 25000000000ULL);
+        }
+      }
+    }
+  }
+  // The old coarse P phase-error floor reproduces error 8 without losing a sample.
+  auto legacy = reference_follow_config();
+  legacy.acquisition_rate_feedforward = false;
+  Simulation old(-1500000., -300., legacy);
+  while (old.cycle < 30000 && !old.result.failed) {old.step();}
+  CHECK(old.result.failure == Follower::Failure::AcquisitionTimeout);
+  CHECK(old.result.rejected_samples == 0 && !old.result.locked);
+}
+
 int main()
 {
+  acquisition_covers_cold_clock_rates();
   profile_keeps_protection_and_baseline_defaults();
   startup_and_bounded_saturated_handoff();
   single_142ppm_rate_change_while_locked();
   original_quality_protection_stays_latched();
   original_missing_sample_protection_stays_latched();
-  std::cout << "PASS 5 fast-profile regressions, " << checks
+  std::cout << "PASS 6 fast-profile regressions, " << checks
             << " checks; no hardware, clocks, or trace dependency\n";
+  return 0;
 }

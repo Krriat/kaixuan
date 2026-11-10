@@ -169,14 +169,17 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("o6_command_timeout_ms", default_value="0"))
     ld.add_action(DeclareLaunchArgument("o6_max_step", default_value="255"))
     ld.add_action(DeclareLaunchArgument("o6_imu_only", default_value="false"))
+    # 2026-11-10: user aligned the physical right arm to URDF q=[0]*7.
+    # Five read-only encoder samples per joint: config/right_arm_calibration.json.
+    # q_deg = direction * (raw_output_deg - comp_deg); existing directions retained.
     _comp_defaults = [
-        "8.61927750",
-        "-115.05901903",
-        "-151.79905785",
-        "43.58607398",
-        "125.67501068",
-        "-9.17790101",
-        "-0.02567102",
+        "3.56371398",
+        "-25.80779916",
+        "-152.37562391",
+        "49.15893979",
+        "170.66025460",
+        "-6.14700695",
+        "-27.39246822",
     ]
     # 2026-11-03: offsets from the physical reference pose, with user corrections.
     # Read-only encoder samples and observed drive status: config/left_arm_calibration.json.

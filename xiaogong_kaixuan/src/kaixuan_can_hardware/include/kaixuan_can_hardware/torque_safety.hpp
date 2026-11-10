@@ -8,6 +8,29 @@
 
 namespace kaixuan_can_hardware
 {
+inline bool cia402_disabled_feedback(std::uint16_t control, std::uint16_t status,
+  std::uint16_t error)
+{
+  const auto state = status & 0x006fU;
+  return (control == 0 || control == 6) && (state == 0x21 || state == 0x40) && error == 0;
+}
+
+// Decay the magnitude faster without increasing the rate at which torque is
+// built in either direction. A reversal consumes time reaching zero first.
+inline double slew_torque(double previous, double desired, double dt,
+  double increase_rate, double release_rate)
+{
+  if (previous * desired < 0.0) {
+    const double to_zero = std::abs(previous) / release_rate;
+    if (to_zero < dt) {
+      return std::copysign(std::min(std::abs(desired), increase_rate * (dt - to_zero)), desired);
+    }
+    return previous - std::copysign(release_rate * dt, previous);
+  }
+  const double rate = std::abs(desired) < std::abs(previous) ? release_rate : increase_rate;
+  return previous + std::clamp(desired - previous, -rate * dt, rate * dt);
+}
+
 // ROS effort is output-joint N.m. The command scale is firmware-specific;
 // feedback scaling is selected from the drive's Pn083 and Pn085 readings.
 struct TorqueParameters
@@ -20,6 +43,8 @@ struct TorqueParameters
   double max_displacement_rad{0.0};
   double min_position_rad{-3.14}, max_position_rad{3.14};
   bool normalize_position{false};
+  // Zero preserves the original symmetric limiter for existing configurations.
+  double release_slew_nm_s{0.0};
 
   bool valid() const
   {
@@ -28,7 +53,9 @@ struct TorqueParameters
     {
       if (!std::isfinite(v) || v <= 0.0) {return false;}
     }
-    return std::isfinite(min_position_rad) && std::isfinite(max_position_rad) &&
+    return std::isfinite(release_slew_nm_s) &&
+      (release_slew_nm_s == 0.0 || release_slew_nm_s >= slew_nm_s) &&
+      std::isfinite(min_position_rad) && std::isfinite(max_position_rad) &&
       min_position_rad < max_position_rad && limit_nm <= rated_nm &&
       limit_nm * command_units_per_nm >= 1.0 &&
       limit_nm * command_units_per_nm <= 32767.0;
@@ -144,8 +171,8 @@ struct TorqueSafety
     }
     ever_enabled = true;
     const double desired = std::clamp(in.command, -p.limit_nm, p.limit_nm);
-    const double step = p.slew_nm_s * in.period_s;
-    output_nm += std::clamp(desired - output_nm, -step, step);
+    output_nm = slew_torque(output_nm, desired, in.period_s, p.slew_nm_s,
+      p.release_slew_nm_s > 0.0 ? p.release_slew_nm_s : p.slew_nm_s);
     return {true, output_nm};
   }
 };

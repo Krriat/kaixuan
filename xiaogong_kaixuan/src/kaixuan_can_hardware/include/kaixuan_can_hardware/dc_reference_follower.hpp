@@ -43,6 +43,8 @@ public:
     double filter_alpha{1.0 / 32.0};
     double proportional_gain{0.002};
     double integral_gain{0.000001};
+    bool acquisition_rate_feedforward{false};
+    double acquisition_rate_alpha{1.0 / 256.0};
     bool bumpless_fine_entry{false};  // Preserve baseline unless explicitly enabled.
   };
   enum class Failure {
@@ -110,6 +112,7 @@ public:
       config_.reference_rate_limit_ppm > 1000000ULL ||
       config_.reference_interval_tolerance_ns >= config_.period_ns / 2 ||
       !std::isfinite(config_.filter_alpha) || config_.filter_alpha <= 0 || config_.filter_alpha > 1 ||
+      !std::isfinite(config_.acquisition_rate_alpha) || config_.acquisition_rate_alpha <= 0 || config_.acquisition_rate_alpha > 1 ||
       !std::isfinite(config_.proportional_gain) || config_.proportional_gain < 0 ||
       !std::isfinite(config_.integral_gain) || config_.integral_gain < 0)
     {
@@ -229,6 +232,18 @@ public:
       return finish(out);
     }
 
+    if (!calibrated_ && have_initial_sample_ && config_.acquisition_rate_feedforward) {
+      // Estimate physical host/reference rate from paired accepted samples,
+      // independently of B. Do not integrate phase error during acquisition.
+      // Keep single derivative samples unclipped to avoid noise-induced bias;
+      // only the filtered estimate and actual correction are bounded.
+      const auto elapsed = in.host_mono_send_ns - last_send_mono_;
+      const std::uint32_t ref_elapsed = in.ref32 - last_ref32_;
+      const double rate = double(std::int64_t(elapsed) - std::int64_t(ref_elapsed)) *
+        double(config_.period_ns) / double(elapsed);
+      acquisition_rate_ = std::clamp(acquisition_rate_ + config_.acquisition_rate_alpha *
+        (rate - acquisition_rate_), -double(config_.frequency_limit_ns), double(config_.frequency_limit_ns));
+    }
     if (!calibrated_) {
       if (!in.drives_disabled) {quality_ = Quality::AwaitDisabled; return finish(out);}
       // Preserve the complete absolute residual, including whole periods.
@@ -253,9 +268,14 @@ public:
       filtered_ += config_.filter_alpha * (double(residual) - filtered_);
       coarse_good_samples_ = increment(coarse_good_samples_);
       const bool qualified = coarse_good_samples_ >= config_.acquisition_qualification_samples;
+      if (config_.acquisition_rate_feedforward) {frequency_ = acquisition_rate_;}
+      // Qualify the shrinking PHASE correction, not the steady frequency
+      // correction needed even when the two clocks are perfectly aligned.
+      const double phase_correction = config_.acquisition_rate_feedforward ?
+        std::abs(double(last_correction_) - frequency_) : double(magnitude(last_correction_));
       const bool fine_entry_good = qualified && magnitude(residual) < std::uint64_t(config_.raw_limit_ns) &&
         std::abs(filtered_) <= double(config_.fine_entry_filtered_ns) &&
-        magnitude(last_correction_) <= std::uint64_t(config_.fine_entry_correction_ns);
+        phase_correction <= double(config_.fine_entry_correction_ns);
       fine_entry_good_samples_ = fine_entry_good ? increment(fine_entry_good_samples_) : 0;
       if (fine_entry_good_samples_ >= config_.fine_entry_good_samples) {
         calibrated_ = true;
@@ -276,7 +296,7 @@ public:
         quality_ = Quality::CoarseAcquiring;
         // No integral during large-error acquisition: prevent windup. A
         // proportional taper brakes before entering the narrow fine PLL.
-        advance_base(qualified ? config_.acquisition_gain * filtered_ : 0, out);
+        advance_base(qualified ? frequency_ + config_.acquisition_gain * filtered_ : 0, out);
       }
       return finish(out);
     }
@@ -399,7 +419,7 @@ private:
 
   Config config_;
   std::int64_t base_ns_{0}, last_correction_{0};
-  double filtered_{0}, frequency_{0}, fraction_{0};
+  double filtered_{0}, frequency_{0}, fraction_{0}, acquisition_rate_{0};
   bool calibrated_{false}, locked_{false}, have_step_{false}, previous_disabled_{false};
   bool have_initial_sample_{false}, ever_corrected_{false};
   Failure failure_{Failure::None};

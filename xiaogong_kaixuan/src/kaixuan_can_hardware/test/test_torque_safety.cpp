@@ -6,8 +6,40 @@ void check(bool condition, const char *message)
 {if (!condition) {std::cerr << message << '\n'; std::exit(1);}}
 int main()
 {
+  for (auto control : {0, 6}) {
+    check(cia402_disabled_feedback(control, 0x231, 0), "shutdown feedback is torque-disabled");
+    check(cia402_disabled_feedback(control, 0x250, 0), "disable-voltage feedback is torque-disabled");
+    check(!cia402_disabled_feedback(control, 0x237, 0), "enabled feedback never qualifies as disabled");
+    check(!cia402_disabled_feedback(control, 0x250, 1), "drive error prevents disabled qualification");
+  }
+  for (auto control : {7, 15, 128}) {
+    check(!cia402_disabled_feedback(control, 0x250, 0), "enable/fault-reset requests never qualify as disabled");
+  }
   TorqueParameters p{15.0, 1000.0 / 15.0, 0.75, 7.5, 0.3, 0.17, -3.14, 3.14};
   check(p.valid(), "valid parameters");
+  for (double previous : {-0.75, -0.01, 0.0, 0.01, 0.75}) {
+    for (double desired : {-0.75, -0.01, 0.0, 0.01, 0.75}) {
+      const double legacy = previous + std::clamp(desired-previous, -0.0075, 0.0075);
+      check(std::abs(slew_torque(previous, desired, .001, 7.5, 7.5)-legacy) < 1e-12,
+        "default slew exactly preserves legacy reversals");
+      const double fast = slew_torque(previous, desired, .001, 7.5, 30.0);
+      check(fast >= std::min(previous, desired)-1e-12 &&
+        fast <= std::max(previous, desired)+1e-12, "release never overshoots desired torque");
+      if (fast * previous >= 0 && std::abs(fast) > std::abs(previous)) {
+        check(std::abs(fast-previous) <= .0075+1e-12, "increasing magnitude retains original slew");
+      }
+    }
+  }
+  check(std::abs(slew_torque(.5, .1, .001, 7.5, 30.)-.47) < 1e-12,
+    "positive torque unloads at release rate");
+  check(std::abs(slew_torque(-.5, -.1, .001, 7.5, 30.)+.47) < 1e-12,
+    "negative torque unloads at release rate");
+  check(std::abs(slew_torque(.015, -.5, .001, 7.5, 30.)+.00375) < 1e-12,
+    "reversal only builds opposite torque during remaining half-period");
+  p.release_slew_nm_s = -1.; check(!p.valid(), "negative release rate rejected");
+  p.release_slew_nm_s = 1.; check(!p.valid(), "release slower than increase rejected");
+  p.release_slew_nm_s = 30.; check(p.valid(), "explicit release rate valid");
+  p.release_slew_nm_s = 0.;
   check(p.to_raw(1000, 1) == 50 && p.to_raw(-1000, -1) == 50, "clamp/sign/overflow");
   check(std::abs(p.feedback_nm(50, -1, 0, 1) + 0.75) < 1e-12, "per-mille feedback");
   check(std::abs(p.feedback_nm(5, 1, 1, 1) - 0.75) < 1e-12, "current feedback");
