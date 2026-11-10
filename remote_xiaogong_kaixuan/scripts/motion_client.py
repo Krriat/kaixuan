@@ -19,7 +19,7 @@ from rclpy.qos import qos_profile_sensor_data
 from rclpy.signals import SignalHandlerOptions
 from sensor_msgs.msg import JointState
 
-from check_connection import model_signature
+from check_connection import model_difference_details
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -129,8 +129,11 @@ class ArmClient(Node):
     def _check_robot(self):
         response = self._rpc(self._description, GetParameters.Request(names=["robot_description"]), "机器人模型")
         description = response.values[0].string_value if response.values else ""
-        if not description or model_signature(description) != model_signature((ROOT / "model/robot.urdf").read_text()):
-            raise RuntimeError("机器人与客户端 URDF 不一致；请更新两端并重启 bringup")
+        if not description:
+            raise RuntimeError("未读到机器人 URDF；请检查 robot_state_publisher 的参数服务")
+        differences = model_difference_details(description, (ROOT / "model/robot.urdf").read_text())
+        if differences:
+            raise RuntimeError("机器人与客户端 URDF 不一致；请同步 model/ 并重启 RViz：" + "; ".join(differences))
         controllers = self._rpc(self._controllers, ListControllers.Request(), "控制器列表")
         if not any(item.name == f"{self.arm}_arm_controller" and item.state == "active"
                    for item in controllers.controller):

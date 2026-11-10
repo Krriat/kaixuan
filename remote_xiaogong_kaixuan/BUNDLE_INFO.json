@@ -3,7 +3,7 @@
   "default_arm": "left",
   "default_domain": 26,
   "source_model": "xiaogong_kaixuan/src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf",
-  "source_model_sha256": "a42df807c6bc0a8c9c23cbb95d037c758b841b02f67b69dea428433e1a977a71",
+  "source_model_sha256": "95e5a19db11846d027ebb2d304e863d8a42836baa19e749c01952204c8b36f61",
   "source_srdf_sha256": "0a3176062f9a9ec0740917edf33cf3cbe7022cc5aa15eba1ad525bd458648b87",
   "validation": "URDF origin rotations updated on 2026-11-03 relative to the original model: left_joint1 +180 degrees, left_joint2 +190 degrees, left_joint5 +180 degrees, right_joint2 +10 degrees about their respective joint-local Z axes. Remote and workspace geometry are synchronized. Earlier mock-controller checks precede this geometry update. No motor enable or physical motion was performed. Zero-pose left_joint2 through left_joint6 world axes are now aligned to their nearest horizontal/vertical cardinal directions; maximum prior tilt was 0.002517852 degrees. User-requested left_joint2/left_joint6 axis reversals are synchronized in both URDFs; hardware signs stay +1 to avoid double reversal. On 2026-11-04 left_joint6 was corrected from local -Z back to +Z; the gravity model uses the corrected axis and hardware direction remains +1.",
   "python_motion_client": {
@@ -87,7 +87,7 @@
     "gravity_update": "Rebuild Pinocchio model from the corrected URDF; recompute all joint gravity torques. Keep positive damping and avoid an additional hardware sign reversal.",
     "physical_motion_tested": false
   },
-  "remote_model_sha256": "c5a1d77c324bedf47d7e6a05294ae091e319ab454cb2daca501b082a3a081ee3",
+  "remote_model_sha256": "95e5a19db11846d027ebb2d304e863d8a42836baa19e749c01952204c8b36f61",
   "control_lab": {
     "date": "2026-11-05",
     "entry": "control_lab/README.md",
@@ -103,5 +103,20 @@
     "desktop_viewer_tested": false,
     "real_hardware_commanded": false,
     "robot_remote_dynamics_geometry": "Same XML attributes except robot name; file formatting/comments also differ"
+  },
+  "model_bundle_sync": {
+    "date": "2026-11-10T01:40:49.043598+00:00",
+    "source_commit": "7c786077b41b54db7a3a3a02713d9ad200fbc1b9",
+    "reason": "Client model/ copy was not synchronized when robot source changed. right_joint1 origin X differed by 0.010173m.",
+    "changes": [
+      "right_joint1 X offset zero",
+      "left links1-3 transformed from right geometry and inertias",
+      "left link3 independent collision mesh"
+    ],
+    "source_and_client_urdf_identical": true,
+    "referenced_stl_count": 17,
+    "all_referenced_meshes_match_source": true,
+    "read_only_live_check": "Domain26, --arm right: all checks passed against existing real hardware bringup. No planning or motion goals sent.",
+    "unit_tests_passed": 25
   }
 }

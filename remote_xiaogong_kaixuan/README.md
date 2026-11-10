@@ -88,9 +88,9 @@ RViz 默认选择 `left_arm`：
 5. 确认轨迹后点击 **Execute**。此操作会让真实左臂运动。
 
 RViz 使用 ROS 关节坐标，驱动的硬件标定偏置仍在机器人端处理。
-当前左臂编码器补偿设在机器人端 `moveit_bringup.launch.py` 的 `_left_comp_defaults`。
-已按用户确认保持不变的实体姿态及截图目标角度计算，URDF 使用原始几何。
-截图中的 ±180° 是滑条端点的取整显示，计算采用原模型实际限位 ±3.14 rad。
+当前左右臂编码器补偿设在机器人端 `moveit_bringup.launch.py` 的 `_left_comp_defaults` / `_comp_defaults`。
+2026-11-10 模型中右肩 X 偏移已归零，左侧第 1～3 连杆的几何和惯性参数已按右侧参考统一。
+左第 5 轴使用精确 ±π 限位，其他活动关节仍使用模型中的 ±3.14 rad。
 更新后须重启机器人端 bringup 和电脑端 RViz；仅在电脑端更新无法改变机器人反馈角度。
 右臂未启用时不选择 `right_arm` / `dual_arms` 作为执行组。
 右臂接入并完成相同的现场核验后，可使用：
@@ -218,12 +218,24 @@ bash ./start_rviz.sh
 - `scripts/motion_client.py`：可导入的 Python `ArmClient` 和命令行程序。
 - `examples/move_left_arm.py`：左臂 Python 示例，从当前姿态计算第四关节 +1° 的目标。
 - `robot_bringup.sh`：机器人端已有工作区的启动入口；不会安装或修改驱动。
-- `model/`：当前 URDF 与全部 16 个 STL 网格。
+- `model/`：当前 URDF 与全部 17 个 STL 网格，包括左第 3 连杆独立的碰撞网格。
 - `config/`：当前 SRDF、运动学、关节限制、RViz 配置、DDS UDP 配置。
 - `MANIFEST.sha256`：文件校验清单，可运行 `sha256sum -c MANIFEST.sha256`。
 - [`VALIDATION.md`](VALIDATION.md)：Python 接口的离线与模拟测试记录，以及取消请求的限制。
 
 机器人 URDF / 网格 / SRDF 改动后，应重新复制匹配的客户端文件。上述客户端的真实远程运动经过机器人端 MoveIt。
+
+同一次 `git pull` 只更新已提交的文件，不会自动把机器人工作区模型复制到客户端 `model/`。
+若报模型不一致，检查现在会打印具体关节字段，例如 `right_joint1.origin.xyz`。
+机器人源文件已更新而客户端副本遗漏时，在完整仓库根目录执行：
+
+```bash
+cp xiaogong_kaixuan/src/xiaogong_kaixuan/urdf/xiaogong-kaixuan.urdf remote_xiaogong_kaixuan/model/robot.urdf
+cp -a xiaogong_kaixuan/src/xiaogong_kaixuan/meshes/. remote_xiaogong_kaixuan/model/meshes/
+```
+
+之后重启本地 RViz 并重跑连接检查。如果机器人发布的仍是旧模型，再重启机器人 bringup。
+维护提交时须一起更新模型副本和 `MANIFEST.sha256`；`tests/test_model_bundle.py` 在完整仓库中会核对两份模型及全部引用网格。
 
 参考：[MoveIt Humble RViz / MoveGroup 接口](https://moveit.picknik.ai/humble/doc/examples/move_group_interface/move_group_interface_tutorial.html)、
 [ROS 2 Humble 环境变量](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html)、

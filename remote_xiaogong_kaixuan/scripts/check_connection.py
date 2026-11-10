@@ -39,6 +39,30 @@ def model_signature(text):
     return signatures
 
 
+def model_difference_details(robot_text, client_text):
+    """Describe the same joint mismatch that blocks connection and motion checks."""
+    robot = model_signature(robot_text)
+    client = model_signature(client_text)
+    differences = []
+    for name in sorted(robot.keys() | client.keys()):
+        if name not in client:
+            differences.append(f"{name}：客户端缺少该关节")
+            continue
+        if name not in robot:
+            differences.append(f"{name}：机器人模型缺少该关节")
+            continue
+        if robot[name][0] != client[name][0]:
+            differences.append(f"{name}.type：客户端={client[name][0]}，机器人={robot[name][0]}")
+        robot_elements = dict(robot[name][1])
+        client_elements = dict(client[name][1])
+        for tag in robot_elements:
+            a, b = dict(client_elements[tag]), dict(robot_elements[tag])
+            for key in sorted(a.keys() | b.keys()):
+                if a.get(key) != b.get(key):
+                    differences.append(f"{name}.{tag}.{key}：客户端={a.get(key)}，机器人={b.get(key)}")
+    return differences
+
+
 class Check(Node):
     def __init__(self, arm):
         super().__init__("kaixuan_remote_connection_check")
@@ -135,12 +159,15 @@ class Check(Node):
         if description:
             matching = False
             try:
-                matching = model_signature(description) == model_signature((ROOT / "model/robot.urdf").read_text())
+                differences = model_difference_details(description, (ROOT / "model/robot.urdf").read_text())
+                matching = not differences
+                for difference in differences:
+                    print("  模型差异：" + difference)
                 plugin = ET.fromstring(description).findtext("./ros2_control/hardware/plugin")
                 if plugin:
                     print("机器人端硬件插件：" + plugin)
-            except (ET.ParseError, ValueError):
-                pass
+            except (ET.ParseError, ValueError, OSError) as error:
+                print("  模型读取/解析失败：" + str(error))
             report(matching, "客户端 URDF 关节结构与机器人一致", "已读到机器人模型，但关节结构不一致或无法解析；请更新匹配的客户端模型。")
         else:
             print("[SKIP] URDF 模型比对：未读到机器人模型，暂不能判断是否一致。")
